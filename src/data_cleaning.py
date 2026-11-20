@@ -1,8 +1,15 @@
 """
-Data Cleaning and Validation Module for Real Estate Properties.
+Data Cleaning and Validation Module for Real Estate Properties (Member 2 - Data Processing).
 
-This module provides validation functions to ensure property records contain
-all required fields and conform to data quality, domain, and type constraints.
+This module implements the 4 core acceptance criteria:
+1. Check required property fields.
+2. Validate property prices (range, positive value, numeric format).
+3. Check property information formats (URL syntax, room counts, allowed types).
+4. Identify invalid property records and categorize rejection causes.
+
+It also provides an open ingestion interface `process_raw_pipeline_data()`
+that automatically consumes incoming records from Member 1 (Data Collection)
+or Member 4 (Properties) as soon as they produce records.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -32,7 +39,10 @@ ALLOWED_PROPERTY_TYPES: List[str] = [
 ]
 
 
-def validate_required_fields(record: Any) -> Tuple[bool, List[str]]:
+# ==============================================================================
+# Acceptance Criterion 1: The system should check required property fields.
+# ==============================================================================
+def check_required_fields(record: Any) -> Tuple[bool, List[str]]:
     """
     Checks that the record contains all required property fields and that none are None or empty.
 
@@ -62,41 +72,22 @@ def validate_required_fields(record: Any) -> Tuple[bool, List[str]]:
     return is_valid, missing_or_empty
 
 
-def validate_property_id(property_id: Any) -> Tuple[bool, str]:
-    """
-    Validates that property_id is non-empty string or positive integer.
-    """
-    if property_id is None:
-        return False, "property_id cannot be None"
-    if isinstance(property_id, int):
-        if property_id <= 0:
-            return False, "property_id as int must be positive"
-        return True, ""
-    if isinstance(property_id, str):
-        cleaned = property_id.strip()
-        if not cleaned:
-            return False, "property_id string cannot be empty"
-        return True, ""
-    return False, "property_id must be string or integer"
+# Backward compatibility alias
+validate_required_fields = check_required_fields
 
 
-def validate_property_type(property_type: Any) -> Tuple[bool, str]:
-    """
-    Validates property type against accepted real estate categories.
-    """
-    if property_type is None:
-        return False, "property_type cannot be None"
-    if not isinstance(property_type, str):
-        return False, "property_type must be a string"
-    cleaned = property_type.strip().lower()
-    if cleaned not in ALLOWED_PROPERTY_TYPES:
-        return False, f"Invalid property_type '{property_type}'. Allowed: {ALLOWED_PROPERTY_TYPES}"
-    return True, ""
-
-
+# ==============================================================================
+# Acceptance Criterion 2: The system should validate property prices.
+# ==============================================================================
 def validate_price(price: Any) -> Tuple[bool, str]:
     """
-    Validates that price is a positive number (int or float) within realistic real estate bounds.
+    Validates property price against numeric rules, positive bounds, and realistic upper ceiling.
+
+    Rules:
+    - Must not be None or Boolean.
+    - Must be positive (> 0).
+    - Must not exceed 1,000,000,000 (1 Billion).
+    - Can parse currency strings (e.g. '$250,000', '£450,000').
     """
     if price is None:
         return False, "price cannot be None"
@@ -123,10 +114,39 @@ def validate_price(price: Any) -> Tuple[bool, str]:
     return False, "price must be a number or numeric string"
 
 
-def validate_room_count(count: Any, room_name: str = "bedrooms") -> Tuple[bool, str]:
-    """
-    Validates room count (bedrooms / bathrooms). Must be non-negative number within realistic range (0 to 100).
-    """
+# ==============================================================================
+# Acceptance Criterion 3: The system should check property information formats.
+# ==============================================================================
+def check_property_id_format(property_id: Any) -> Tuple[bool, str]:
+    """Validates property ID format (non-empty string or positive int)."""
+    if property_id is None:
+        return False, "property_id cannot be None"
+    if isinstance(property_id, int):
+        if property_id <= 0:
+            return False, "property_id as int must be positive"
+        return True, ""
+    if isinstance(property_id, str):
+        cleaned = property_id.strip()
+        if not cleaned:
+            return False, "property_id string cannot be empty"
+        return True, ""
+    return False, "property_id must be string or integer"
+
+
+def check_property_type_format(property_type: Any) -> Tuple[bool, str]:
+    """Validates property type format against accepted standard real estate categories."""
+    if property_type is None:
+        return False, "property_type cannot be None"
+    if not isinstance(property_type, str):
+        return False, "property_type must be a string"
+    cleaned = property_type.strip().lower()
+    if cleaned not in ALLOWED_PROPERTY_TYPES:
+        return False, f"Invalid property_type '{property_type}'. Allowed: {ALLOWED_PROPERTY_TYPES}"
+    return True, ""
+
+
+def check_room_count_format(count: Any, room_name: str = "bedrooms") -> Tuple[bool, str]:
+    """Validates room counts (bedrooms / bathrooms) are within valid non-negative range [0, 100]."""
     if count is None:
         return False, f"{room_name} cannot be None"
     if isinstance(count, bool):
@@ -152,10 +172,8 @@ def validate_room_count(count: Any, room_name: str = "bedrooms") -> Tuple[bool, 
     return False, f"{room_name} must be a number or numeric string"
 
 
-def validate_url(url: Any) -> Tuple[bool, str]:
-    """
-    Validates that listing_url is a well-formed http/https URL string.
-    """
+def check_listing_url_format(url: Any) -> Tuple[bool, str]:
+    """Validates listing URL format using well-formed http/https URI expression."""
     if url is None:
         return False, "listing_url cannot be None"
     if not isinstance(url, str):
@@ -163,7 +181,6 @@ def validate_url(url: Any) -> Tuple[bool, str]:
     cleaned = url.strip()
     if not cleaned:
         return False, "listing_url cannot be empty"
-    # Basic URL pattern validation
     url_pattern = re.compile(
         r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})+(?:/.*)?$", re.IGNORECASE
     )
@@ -172,53 +189,61 @@ def validate_url(url: Any) -> Tuple[bool, str]:
     return True, ""
 
 
+# Backward compatibility aliases
+validate_property_id = check_property_id_format
+validate_property_type = check_property_type_format
+validate_room_count = check_room_count_format
+validate_url = check_listing_url_format
+
+
+# ==============================================================================
+# Acceptance Criterion 4: The system should identify invalid property records.
+# ==============================================================================
 def validate_property_record(record: Any) -> Tuple[bool, List[str]]:
     """
-    Performs comprehensive validation of a single property record:
-    1. Checks presence of all required fields.
-    2. Performs domain, boundary, and type validation on individual fields.
-
-    Parameters:
-        record: Dictionary containing property data.
-
-    Returns:
-        Tuple[bool, List[str]]: (is_valid, list_of_error_messages)
+    Validates a complete property record, executing existence and format checks.
+    Identifies all validation failures so that only correct and reliable records pass.
     """
     errors: List[str] = []
 
-    # Step 1: Required fields existence check
-    req_valid, req_errors = validate_required_fields(record)
+    # 1. Check required fields existence
+    req_valid, req_errors = check_required_fields(record)
     if not req_valid:
         for err in req_errors:
             errors.append(f"Missing or empty required field: {err}")
         return False, errors
 
-    # Step 2: Field level validations
-    id_ok, id_msg = validate_property_id(record.get("property_id"))
+    # 2. Check property ID format
+    id_ok, id_msg = check_property_id_format(record.get("property_id"))
     if not id_ok:
         errors.append(f"Invalid 'property_id': {id_msg}")
 
-    type_ok, type_msg = validate_property_type(record.get("property_type"))
+    # 3. Check property type format
+    type_ok, type_msg = check_property_type_format(record.get("property_type"))
     if not type_ok:
         errors.append(f"Invalid 'property_type': {type_msg}")
 
+    # 4. Check location
     loc = record.get("location")
     if loc is None or not isinstance(loc, str) or not loc.strip():
         errors.append("Invalid 'location': location must be a non-empty string")
 
+    # 5. Validate price
     price_ok, price_msg = validate_price(record.get("price"))
     if not price_ok:
         errors.append(f"Invalid 'price': {price_msg}")
 
-    bed_ok, bed_msg = validate_room_count(record.get("bedrooms"), "bedrooms")
+    # 6. Check room counts
+    bed_ok, bed_msg = check_room_count_format(record.get("bedrooms"), "bedrooms")
     if not bed_ok:
         errors.append(f"Invalid 'bedrooms': {bed_msg}")
 
-    bath_ok, bath_msg = validate_room_count(record.get("bathrooms"), "bathrooms")
+    bath_ok, bath_msg = check_room_count_format(record.get("bathrooms"), "bathrooms")
     if not bath_ok:
         errors.append(f"Invalid 'bathrooms': {bath_msg}")
 
-    url_ok, url_msg = validate_url(record.get("listing_url"))
+    # 7. Check URL format
+    url_ok, url_msg = check_listing_url_format(record.get("listing_url"))
     if not url_ok:
         errors.append(f"Invalid 'listing_url': {url_msg}")
 
@@ -227,13 +252,7 @@ def validate_property_record(record: Any) -> Tuple[bool, List[str]]:
 
 def filter_valid_records(records: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Processes a list of property records, separating them into valid and rejected records.
-
-    Parameters:
-        records: List of property dictionaries.
-
-    Returns:
-        Tuple[List[dict], List[dict]]: (valid_records, rejected_records_with_reasons)
+    Filters a dataset, identifying and separating valid records from invalid records.
     """
     if not isinstance(records, list):
         raise TypeError("records must be a list")
@@ -253,3 +272,32 @@ def filter_valid_records(records: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
             })
 
     return valid_records, rejected_records
+
+
+# ==============================================================================
+# Open Integration Pipeline: Auto-connect to Member 1 & Member 4 once available
+# ==============================================================================
+def process_pipeline_records(raw_source: Optional[Any] = None) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Open ingestion interface:
+    - If raw_source is passed (e.g. from Member 1 or Member 4), it processes it.
+    - If raw_source is None, it dynamically calls src.data_collection.fetch_raw_collected_data().
+    - Automatically maps and filters the records.
+    """
+    if raw_source is None:
+        try:
+            from src.data_collection import fetch_raw_collected_data
+            records = fetch_raw_collected_data()
+        except Exception:
+            records = []
+    elif isinstance(raw_source, list):
+        records = []
+        for item in raw_source:
+            if hasattr(item, "to_dict"):
+                records.append(item.to_dict())
+            elif isinstance(item, dict):
+                records.append(item)
+    else:
+        records = []
+
+    return filter_valid_records(records)

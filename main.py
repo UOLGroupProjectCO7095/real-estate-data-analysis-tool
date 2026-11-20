@@ -1,35 +1,22 @@
 """
 Main Entry Point - Real Estate Data Collection and Analysis Tool.
 Interactive Text-Based Console Application.
+Compatible with standard Python & PyCharm.
 """
 
 import os
 import sys
-import csv
 from typing import List, Dict, Any
 
 from src.data_cleaning import (
     validate_property_record,
     filter_valid_records,
-    REQUIRED_PROPERTY_FIELDS,
+    process_pipeline_records,
 )
-
+from src.data_collection import fetch_raw_collected_data
+from src.property_search import Property
 
 DATA_FILE_PATH = os.path.join(os.path.dirname(__file__), "Data", "properties.csv")
-
-
-def load_properties_from_csv(file_path: str) -> List[Dict[str, Any]]:
-    """Loads property records from a CSV file."""
-    if not os.path.exists(file_path):
-        print(f"[!] Warning: Data file '{file_path}' not found.")
-        return []
-
-    records = []
-    with open(file_path, mode="r", encoding="utf-8", newline="") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            records.append(dict(row))
-    return records
 
 
 def display_records(records: List[Dict[str, Any]], title: str):
@@ -53,43 +40,22 @@ def display_records(records: List[Dict[str, Any]], title: str):
         )
 
 
-def validate_single_property_interactive():
-    """Prompts user to input a single property record and validates it."""
-    print("\n--- Enter Property Details for Validation ---")
-    prop = {}
-    prop["property_id"] = input("Enter Property ID (e.g., PROP2001): ").strip()
-    prop["property_type"] = input("Enter Property Type (apartment/house/condo/villa/studio/townhouse/duplex/land): ").strip()
-    prop["location"] = input("Enter Location: ").strip()
-    prop["price"] = input("Enter Price (e.g., 250000): ").strip()
-    prop["bedrooms"] = input("Enter Bedrooms Count (e.g., 2): ").strip()
-    prop["bathrooms"] = input("Enter Bathrooms Count (e.g., 1.5): ").strip()
-    prop["listing_url"] = input("Enter Listing URL (e.g., https://properties.com/2001): ").strip()
+def handle_process_collected_data():
+    """
+    Openly connects to Data Collection (Member 1) and Properties (Member 4).
+    As soon as data is collected or created, this seamlessly consumes and validates it.
+    """
+    print("\n[+] Triggering Open Data Collection Ingestion Pipeline...")
+    # Calls the open connector which automatically loads from Data/properties.csv or live collection
+    raw_records = fetch_raw_collected_data()
+    print(f"[*] Ingested {len(raw_records)} raw records from collection source.")
 
-    is_valid, errors = validate_property_record(prop)
-    print("\n" + "=" * 50)
-    if is_valid:
-        print("[SUCCESS] Property Record is VALID and reliable for processing!")
-    else:
-        print("[REJECTED] Validation failed with errors:")
-        for err in errors:
-            print(f"  - {err}")
-    print("=" * 50)
+    valid_recs, rejected_recs = process_pipeline_records(raw_records)
 
-
-def validate_stored_properties():
-    """Validates all property records stored in Data/properties.csv."""
-    records = load_properties_from_csv(DATA_FILE_PATH)
-    if not records:
-        print("[!] No records loaded from storage.")
-        return
-
-    print(f"\nLoaded {len(records)} records from {DATA_FILE_PATH}.")
-    valid_recs, rejected_recs = filter_valid_records(records)
-
-    display_records(valid_recs, "Validated & Reliable Property Records")
+    display_records(valid_recs, "Processed & Validated Reliable Property Records")
 
     if rejected_recs:
-        print(f"\n--- Rejected Records ({len(rejected_recs)} records) ---")
+        print(f"\n--- Identified Invalid Records ({len(rejected_recs)} records) ---")
         for rej in rejected_recs:
             rec = rej["record"]
             print(f"Index {rej['index']} (ID: {rec.get('property_id', 'UNKNOWN')}):")
@@ -97,35 +63,58 @@ def validate_stored_properties():
                 print(f"    x {err}")
 
 
-def run_all_tests():
-    """Runs all test suites with coverage directly from the text UI."""
+def handle_manual_validation():
+    """Validates a single user-entered property record against all 4 acceptance criteria."""
+    print("\n--- Manual Property Validation ---")
+    prop = {}
+    prop["property_id"] = input("Enter Property ID (e.g., PROP101): ").strip()
+    prop["property_type"] = input("Enter Property Type (apartment/house/condo/villa/studio/townhouse/duplex/land): ").strip()
+    prop["location"] = input("Enter Location: ").strip()
+    prop["price"] = input("Enter Price: ").strip()
+    prop["bedrooms"] = input("Enter Bedrooms Count: ").strip()
+    prop["bathrooms"] = input("Enter Bathrooms Count: ").strip()
+    prop["listing_url"] = input("Enter Listing URL: ").strip()
+
+    is_valid, errors = validate_property_record(prop)
+    print("\n" + "=" * 55)
+    if is_valid:
+        print("[PASSED] Record meets all criteria and is validated for analysis.")
+    else:
+        print("[REJECTED] The record has invalid or missing fields:")
+        for err in errors:
+            print(f"  - {err}")
+    print("=" * 55)
+
+
+def handle_run_all_tests():
+    """Runs all test suites and displays software quality metrics."""
     import run_tests_with_coverage
     run_tests_with_coverage.main()
 
 
 def main():
     while True:
-        print("\n" + "=" * 60)
-        print("  REAL ESTATE DATA COLLECTION & ANALYSIS TOOL (CLI)  ")
-        print("=" * 60)
-        print("1. Validate All Stored Property Records (Data/properties.csv)")
+        print("\n" + "=" * 65)
+        print("  REAL ESTATE DATA ANALYSIS TOOL - DATA PROCESSING PIPELINE  ")
+        print("=" * 65)
+        print("1. Process & Validate Collected Properties (Open Ingestion Pipeline)")
         print("2. Validate a Single Property Record Manually")
-        print("3. Run All Test Suites & Measure Coverage (CO7095 QA)")
+        print("3. Run Test Suites & Check Coverage (CO7095 QA Standard)")
         print("4. Exit")
-        print("=" * 60)
+        print("=" * 65)
 
-        choice = input("Enter your choice (1-4): ").strip()
+        choice = input("Select an option (1-4): ").strip()
         if choice == "1":
-            validate_stored_properties()
+            handle_process_collected_data()
         elif choice == "2":
-            validate_single_property_interactive()
+            handle_manual_validation()
         elif choice == "3":
-            run_all_tests()
+            handle_run_all_tests()
         elif choice == "4":
             print("\nExiting application. Goodbye!")
             break
         else:
-            print("[!] Invalid choice. Please select an option between 1 and 4.")
+            print("[!] Invalid option. Please enter 1, 2, 3, or 4.")
 
 
 if __name__ == "__main__":
