@@ -4,7 +4,10 @@ PROP1002,house,Manchester South,320000,3,2,https://properties.example.com/1002
 PROP1003,condo,Birmingham City,210000,1,1,https://properties.example.com/1003
 PROP1004,villa,Surrey Green,850000,5,4,https://properties.example.com/1004
 PROP1005,studio,Bristol Centre,160000,0,1,https://properties.example.com/1005
-PROP_BAD_1,,Leeds West,220000,2,1,https://properties.example.com/bad1
-PROP_BAD_2,castle,Edinburgh Old Town,-50000,10,5,ftp://invalid-url
-PROP_BAD_3,house,Glasgow East,not_a_price,3,2,https://properties.example.com/bad3
-PROP_BAD_4,apartment,Cardiff Bay,300000,-1,1,https://properties.example.com/bad4
+PROP1006,townhouse,Leeds West,220000,2,1,https://properties.example.com/1006
+PROP1007,house,Edinburgh Old Town,480000,4,3,https://properties.example.com/1007
+PROP1008,house,Glasgow East,195000,3,2,https://properties.example.com/1008
+PROP1009,apartment,Cardiff Bay,300000,2,1,https://properties.example.com/1009
+PROP1010,duplex,Liverpool Dock,275000,2,2,https://properties.example.com/1010
+PROP1011,land,York Countryside,150000,0,0,https://properties.example.com/1011
+PROP1012,apartment,Newcastle Centre,180000,1,1,https://properties.example.com/1012
