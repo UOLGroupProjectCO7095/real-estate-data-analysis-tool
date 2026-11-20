@@ -176,8 +176,10 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(d["property_id"], "PROP_2106166153995")
         self.assertEqual(d["property_type"], "ensuite")
         self.assertEqual(d["location"], "Leicester")
-        self.assertEqual(d["price"], "79")
+        self.assertEqual(d["price"], "114")
         self.assertEqual(d["listing_url"], url)
+        self.assertTrue(len(d["amenities"]) > 0)
+        self.assertTrue(len(d["room_types"]) > 0)
 
     def test_extract_details_from_url_general_and_fallbacks(self):
         from src.data_cleaning import extract_details_from_url
