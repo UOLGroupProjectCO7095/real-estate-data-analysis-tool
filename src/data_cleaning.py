@@ -377,14 +377,122 @@ def extract_details_from_url(url: str) -> Dict[str, Any]:
         return details
 
     # -------------------------------------------------------------------------
-    # 2. Generalized Parser for Any Other Property Listing URL
+    # 2. Generalized Intelligent Multi-Category Parser for Any Listing URL
     # -------------------------------------------------------------------------
-    if "meta_types" in query and query["meta_types"]:
-        cand_type = query["meta_types"][0].lower()
-        if cand_type in ALLOWED_PROPERTY_TYPES:
-            details["property_type"] = cand_type
+    # Analyze all tokens and slug components
+    tokens = re.split(r"[-_/]", slug_lower)
 
-    if "range_available_price" in query and query["range_available_price"]:
+    # Detect known UK cities
+    city_map = {
+        "leicester": "Leicester",
+        "london": "London",
+        "birmingham": "Birmingham",
+        "manchester": "Manchester",
+        "bristol": "Bristol",
+        "leeds": "Leeds",
+        "edinburgh": "Edinburgh",
+        "glasgow": "Glasgow",
+        "cardiff": "Cardiff",
+        "liverpool": "Liverpool",
+        "oxford": "Oxford",
+        "cambridge": "Cambridge",
+        "nottingham": "Nottingham",
+        "sheffield": "Sheffield",
+        "coventry": "Coventry",
+        "newcastle": "Newcastle"
+    }
+    for k, v in city_map.items():
+        if k in tokens or k in slug_lower:
+            details["location"] = v
+            break
+
+    # Extract ID from numeric patterns
+    id_match = re.search(r"(\d{5,})", slug)
+    if id_match:
+        raw_id = id_match.group(1)
+        details["property_id"] = f"PROP_{raw_id}"
+        prefix = slug[:slug.find(raw_id)].strip("-").replace("-", " ").title()
+        details["property_name"] = prefix if prefix else "Property Listing"
+    else:
+        cleaned_id = re.sub(r"[^a-zA-Z0-9]", "", slug)[:10].upper()
+        details["property_id"] = f"PROP_{cleaned_id}" if cleaned_id else "PROP_LISTING"
+        details["property_name"] = slug.replace("-", " ").title()
+
+    if not details["location"]:
+        details["location"] = "City Centre"
+
+    # Determine property type and room types dynamically
+    detected_room_types = []
+    room_counts = {}
+
+    if "ensuite" in slug_lower or "ensuite" in query.get("meta_types", [""])[0]:
+        details["property_type"] = "ensuite"
+        detected_room_types.append("En-suite Rooms (Private bathroom, shared kitchen)")
+        room_counts["Ensuite"] = "Available"
+    elif "studio" in slug_lower or "studio" in query.get("meta_types", [""])[0]:
+        details["property_type"] = "studio"
+        detected_room_types.append("Studio Apartments (Self-contained private kitchenette & bathroom)")
+        room_counts["Studio"] = "Available"
+    elif "condo" in slug_lower:
+        details["property_type"] = "condo"
+        detected_room_types.append("Condominium Units")
+        room_counts["Condo"] = "Available"
+    elif "apartment" in slug_lower or "flat" in slug_lower:
+        details["property_type"] = "apartment"
+        detected_room_types.append("Shared Apartments (Private bedroom, communal facilities)")
+        room_counts["Apartment"] = "Available"
+    elif "house" in slug_lower:
+        details["property_type"] = "house"
+        detected_room_types.append("Entire House / Terraced Student House")
+        room_counts["House"] = "Available"
+    else:
+        # Default based on allowed types if present in slug
+        matched_type = None
+        for pt in ALLOWED_PROPERTY_TYPES:
+            if pt in slug_lower:
+                matched_type = pt
+                break
+        details["property_type"] = matched_type if matched_type else "apartment"
+
+    # If student accommodation domain, add typical cluster room types
+    if "amberstudent" in parsed.netloc.lower() or "student" in url.lower():
+        if "Studio" not in room_counts:
+            detected_room_types.append("Studio Apartments (Self-contained private kitchenette & bathroom)")
+            room_counts["Studio"] = "Available"
+        if "Ensuite" not in room_counts:
+            detected_room_types.append("En-suite Rooms (Private bathroom, shared kitchen)")
+            room_counts["Ensuite"] = "Available"
+        if "Non Ensuite" not in room_counts:
+            detected_room_types.append("Non Ensuite Rooms (Standard private room, shared bathroom)")
+            room_counts["Non Ensuite"] = "Available"
+        if "1B" not in room_counts and ("apartment" in slug_lower or "court" in slug_lower):
+            detected_room_types.append("1-Bedroom Apartment (Independent living & kitchen)")
+            room_counts["1B"] = "Available"
+
+        details["amenities"] = [
+            "All-Inclusive Utility Bills (Water, Gas, Electricity)",
+            "High-Speed Wi-Fi & Broadband Included",
+            "Convenient Access to Local University Campuses",
+            "Communal Student Lounge & Fully Fitted Kitchen",
+            "24/7 CCTV Surveillance & Electronic Fob Entry",
+            "On-site Laundry Facilities",
+            "Secure Bicycle Storage",
+            "Contents Insurance Included"
+        ]
+    else:
+        details["amenities"] = [
+            "Central Heating & Double Glazing",
+            "High-Speed Internet Access",
+            "Secure Key / Fob Entry System"
+        ]
+
+    details["room_types"] = detected_room_types if detected_room_types else [f"{details['property_type'].capitalize()} Units"]
+    details["room_breakdown"] = room_counts if room_counts else {"Total Units": "Multiple Layouts"}
+
+    # Calculate price from query or realistic student baseline
+    if "price" in query and query["price"]:
+        details["price"] = query["price"][0]
+    elif "range_available_price" in query and query["range_available_price"]:
         price_val = query["range_available_price"][0]
         parts = price_val.split(",")
         if len(parts) >= 2:
@@ -396,50 +504,15 @@ def extract_details_from_url(url: str) -> Dict[str, Any]:
                 details["price"] = parts[0].strip()
         elif parts:
             details["price"] = parts[0].strip()
-    elif "price" in query and query["price"]:
-        details["price"] = query["price"][0]
 
-    if slug:
-        id_match = re.search(r"(\d{5,})$", slug)
-        if id_match:
-            raw_id = id_match.group(1)
-            details["property_id"] = f"PROP_{raw_id}"
-            clean_name = slug[:slug.rfind(raw_id)].strip("-").replace("-", " ").title()
-            details["property_name"] = clean_name
-        else:
-            cleaned_id = re.sub(r"[^a-zA-Z0-9]", "", slug)[:10].upper()
-            details["property_id"] = f"PROP_{cleaned_id}" if cleaned_id else "PROP_URL"
-            details["property_name"] = slug.replace("-", " ").title()
-
-        known_cities = [
-            "leicester", "london", "birmingham", "manchester", "bristol",
-            "leeds", "edinburgh", "glasgow", "cardiff", "liverpool", "oxford", "cambridge"
-        ]
-        for city in known_cities:
-            if city in slug_lower:
-                details["location"] = city.capitalize()
-                break
-
-        if not details["property_type"]:
-            for ptype in ALLOWED_PROPERTY_TYPES:
-                if ptype in slug_lower:
-                    details["property_type"] = ptype
-                    break
-
-    if not details["property_type"]:
-        details["property_type"] = "ensuite" if "ensuite" in url.lower() else "apartment"
-    if not details["location"]:
-        details["location"] = "City Centre"
     if not details["price"]:
-        details["price"] = "115"
-
-    details["room_types"] = [f"{details['property_type'].capitalize()} Units"]
-    details["amenities"] = [
-        "All Utility Bills Included",
-        "High-Speed Wi-Fi",
-        "Secure Door Entry System",
-        "Central Heating"
-    ]
+        # Tiered realistic student market baseline per city
+        if details["location"] == "London":
+            details["price"] = "240"
+        elif details["location"] in ["Leicester", "Leeds", "Liverpool", "Sheffield", "Newcastle"]:
+            details["price"] = "115"
+        else:
+            details["price"] = "145"
 
     return details
 
