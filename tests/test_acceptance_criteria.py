@@ -166,6 +166,39 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(len(valid_recs), 1)
         self.assertEqual(len(rejected_recs), 0)
 
+    # -------------------------------------------------------------------------
+    # URL Processing and Details Extraction Tests
+    # -------------------------------------------------------------------------
+    def test_extract_details_from_url_amberstudent_ensuite(self):
+        from src.data_cleaning import extract_details_from_url
+        url = "https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995?range_available_price=79%2C150&move_in_month=jan-2027&meta_types=ensuite"
+        d = extract_details_from_url(url)
+        self.assertEqual(d["property_id"], "PROP_2106166153995")
+        self.assertEqual(d["property_type"], "ensuite")
+        self.assertEqual(d["location"], "Leicester")
+        self.assertEqual(d["price"], "79")
+        self.assertEqual(d["listing_url"], url)
+
+    def test_extract_details_from_url_general_and_fallbacks(self):
+        from src.data_cleaning import extract_details_from_url
+        # Empty and non-string inputs
+        self.assertEqual(extract_details_from_url("")["property_type"], "")
+        self.assertEqual(extract_details_from_url(None)["property_type"], "")
+
+        # General property URL with query price
+        url2 = "https://example.com/listings/luxury-condo-london?price=500000"
+        d2 = extract_details_from_url(url2)
+        self.assertEqual(d2["property_type"], "condo")
+        self.assertEqual(d2["location"], "London")
+        self.assertEqual(d2["price"], "500000")
+
+        # Fallback slug without recognized city or type
+        url3 = "https://example.com/items/special-lot"
+        d3 = extract_details_from_url(url3)
+        self.assertTrue(d3["property_id"].startswith("PROP_"))
+        self.assertEqual(d3["property_type"], "apartment")
+        self.assertEqual(d3["location"], "City Centre")
+
 
 if __name__ == "__main__":
     unittest.main()

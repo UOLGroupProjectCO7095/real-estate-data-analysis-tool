@@ -64,26 +64,50 @@ def handle_process_collected_data():
 
 
 def handle_manual_validation():
-    """Validates a single user-entered property record against all 4 acceptance criteria."""
-    print("\n--- Manual Property Validation ---")
+    """Validates a property record, starting with listing URL to auto-extract details or fill manually."""
+    print("\n--- Property Validation via Listing URL ---")
+    url_input = input("Enter Listing URL: ").strip()
+
+    # Step 1: Process URL and extract details
+    extracted = {}
+    if url_input:
+        from src.data_cleaning import extract_details_from_url
+        extracted = extract_details_from_url(url_input)
+        print("\n[+] Processed URL and Extracted Property Details:")
+        print(f"  - Extracted Property ID   : {extracted.get('property_id')}")
+        print(f"  - Extracted Property Type : {extracted.get('property_type')}")
+        print(f"  - Extracted Location      : {extracted.get('location')}")
+        print(f"  - Extracted Price         : {extracted.get('price')}")
+        print(f"  - Default Bedrooms        : {extracted.get('bedrooms')}")
+        print(f"  - Default Bathrooms       : {extracted.get('bathrooms')}")
+        print(f"  - Listing URL             : {url_input}")
+        print("\nPress [Enter] to keep extracted values, or type a new value to customize:")
+
     prop = {}
-    prop["property_id"] = input("Enter Property ID (e.g., PROP101): ").strip()
-    prop["property_type"] = input("Enter Property Type (apartment/house/condo/villa/studio/townhouse/duplex/land): ").strip()
-    prop["location"] = input("Enter Location: ").strip()
-    prop["price"] = input("Enter Price: ").strip()
-    prop["bedrooms"] = input("Enter Bedrooms Count: ").strip()
-    prop["bathrooms"] = input("Enter Bathrooms Count: ").strip()
-    prop["listing_url"] = input("Enter Listing URL: ").strip()
+    prop["listing_url"] = url_input
+
+    def prompt_field(label: str, key: str, default_val: str) -> str:
+        prompt_str = f"Enter {label}" + (f" [{default_val}]" if default_val else "") + ": "
+        val = input(prompt_str).strip()
+        return val if val else default_val
+
+    prop["property_id"] = prompt_field("Property ID", "property_id", extracted.get("property_id", "PROP101"))
+    prop["property_type"] = prompt_field("Property Type (apartment/house/condo/villa/studio/townhouse/duplex/land/ensuite)", "property_type", extracted.get("property_type", "apartment"))
+    prop["location"] = prompt_field("Location", "location", extracted.get("location", "London"))
+    prop["price"] = prompt_field("Price", "price", str(extracted.get("price", "250000")))
+    prop["bedrooms"] = prompt_field("Bedrooms Count", "bedrooms", str(extracted.get("bedrooms", "1")))
+    prop["bathrooms"] = prompt_field("Bathrooms Count", "bathrooms", str(extracted.get("bathrooms", "1")))
 
     is_valid, errors = validate_property_record(prop)
-    print("\n" + "=" * 55)
+    print("\n" + "=" * 60)
     if is_valid:
-        print("[PASSED] Record meets all criteria and is validated for analysis.")
+        print("[PASSED] Record meets all criteria and is validated for analysis!")
+        print(f"Summary: ID={prop['property_id']}, Type={prop['property_type']}, Location={prop['location']}, Price={prop['price']}, Beds={prop['bedrooms']}, Baths={prop['bathrooms']}")
     else:
         print("[REJECTED] The record has invalid or missing fields:")
         for err in errors:
             print(f"  - {err}")
-    print("=" * 55)
+    print("=" * 60)
 
 
 def handle_run_all_tests():

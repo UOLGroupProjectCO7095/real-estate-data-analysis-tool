@@ -35,7 +35,8 @@ ALLOWED_PROPERTY_TYPES: List[str] = [
     "villa",
     "studio",
     "duplex",
-    "land"
+    "land",
+    "ensuite"
 ]
 
 
@@ -248,6 +249,91 @@ def validate_property_record(record: Any) -> Tuple[bool, List[str]]:
         errors.append(f"Invalid 'listing_url': {url_msg}")
 
     return len(errors) == 0, errors
+
+
+def extract_details_from_url(url: str) -> Dict[str, Any]:
+    """
+    Parses and extracts property details from a listing URL.
+    Handles URL paths, query parameters, property types (e.g. ensuite, studio, apartment),
+    IDs, prices, and locations.
+    """
+    import urllib.parse
+
+    details: Dict[str, Any] = {
+        "property_id": "",
+        "property_type": "",
+        "location": "",
+        "price": "",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "listing_url": url
+    }
+
+    if not url or not isinstance(url, str):
+        return details
+
+    parsed = urllib.parse.urlparse(url.strip())
+    path = parsed.path.strip("/")
+    query = urllib.parse.parse_qs(parsed.query)
+
+    # 1. Extract type from query parameters (e.g. meta_types=ensuite) or URL path
+    if "meta_types" in query and query["meta_types"]:
+        cand_type = query["meta_types"][0].lower()
+        if cand_type in ALLOWED_PROPERTY_TYPES:
+            details["property_type"] = cand_type
+
+    # 2. Extract price from query parameters (e.g. range_available_price=79,150)
+    if "range_available_price" in query and query["range_available_price"]:
+        price_val = query["range_available_price"][0]
+        # If it's a range like 79,150, take the lower/representative price
+        parts = price_val.split(",")
+        if parts:
+            details["price"] = parts[0].strip()
+    elif "price" in query and query["price"]:
+        details["price"] = query["price"][0]
+
+    # 3. Extract information from path segments
+    # Example: places/dover-street-apartments-leicester-2106166153995
+    path_parts = path.split("/")
+    slug = path_parts[-1] if path_parts else ""
+
+    if slug:
+        # Check for numeric ID at the end of slug
+        id_match = re.search(r"(\d{5,})$", slug)
+        if id_match:
+            details["property_id"] = "PROP_" + id_match.group(1)
+        else:
+            # Fallback ID from slug
+            cleaned_id = re.sub(r"[^a-zA-Z0-9]", "", slug)[:10].upper()
+            details["property_id"] = f"PROP_{cleaned_id}" if cleaned_id else "PROP_URL"
+
+        # Check for location in slug (e.g. leicester, london, manchester)
+        slug_lower = slug.lower()
+        known_cities = [
+            "leicester", "london", "birmingham", "manchester", "bristol",
+            "leeds", "edinburgh", "glasgow", "cardiff", "liverpool", "oxford", "cambridge"
+        ]
+        for city in known_cities:
+            if city in slug_lower:
+                details["location"] = city.capitalize()
+                break
+
+        # Check for property type in slug if not already found
+        if not details["property_type"]:
+            for ptype in ALLOWED_PROPERTY_TYPES:
+                if ptype in slug_lower:
+                    details["property_type"] = ptype
+                    break
+
+    # Default fallback values if unable to infer
+    if not details["property_type"]:
+        details["property_type"] = "apartment"
+    if not details["location"]:
+        details["location"] = "City Centre"
+    if not details["price"]:
+        details["price"] = "150"
+
+    return details
 
 
 def filter_valid_records(records: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
