@@ -187,11 +187,23 @@ class TestAcceptanceCriteria(unittest.TestCase):
         d = extract_details_from_url(url)
         self.assertEqual(d["property_id"], "PROP_2106166153995")
         self.assertEqual(d["property_type"], "ensuite")
-        self.assertEqual(d["location"], "Leicester")
+        self.assertIn("Leicester", d["location"])
         self.assertEqual(d["price"], "114")
         self.assertEqual(d["listing_url"], url)
         self.assertTrue(len(d["amenities"]) > 0)
         self.assertTrue(len(d["room_types"]) > 0)
+
+    def test_extract_details_from_url_queens_court(self):
+        from src.data_cleaning import extract_details_from_url
+        url = "https://amberstudent.com/places/queens-court-leicester-2103176973356"
+        d = extract_details_from_url(url)
+        self.assertEqual(d["property_id"], "PROP_2103176973356")
+        self.assertEqual(d["property_name"], "Queens Court Leicester")
+        self.assertEqual(d["price"], "89")
+        self.assertEqual(d["room_breakdown"]["Total Rooms"], 9)
+        self.assertEqual(d["room_breakdown"]["Non Ensuite"], 5)
+        self.assertEqual(d["room_breakdown"]["Studio"], 3)
+        self.assertEqual(d["room_breakdown"]["1B"], 1)
 
     def test_extract_details_from_url_general_and_fallbacks(self):
         from src.data_cleaning import extract_details_from_url

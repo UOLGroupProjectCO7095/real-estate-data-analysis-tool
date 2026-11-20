@@ -150,6 +150,11 @@ def handle_manual_validation():
     for rt in prop.get('room_types', []):
         print(f"      - {rt}")
 
+    if prop.get('room_breakdown'):
+        print("\n  • Room Breakdown Summary:")
+        for k, v in prop.get('room_breakdown', {}).items():
+            print(f"      * {k}: {v}")
+
     print("\n  • Amenities:")
     for amen in prop.get('amenities', []):
         print(f"      ✓ {amen}")
