@@ -1,11 +1,13 @@
 """
 Property Entities & Domain Model (Member 4 - Properties).
 
-Defines the PropertyRecord domain entity. Provides open conversion methods
-between raw dictionaries and strongly-typed objects once Member 4 develops this module.
+Defines the PropertyRecord domain entity and simulated Property creation.
+- In production: Real property domain objects created by Member 4.
+- In testing/simulation: Generates simulated Property entities to test open merging.
 """
 
-from typing import Dict, Any, Optional
+import random
+from typing import Dict, Any, List, Optional
 
 
 class Property:
@@ -58,3 +60,32 @@ class Property:
 
     def __repr__(self) -> str:
         return f"Property(id='{self.property_id}', type='{self.property_type}', price={self.price}, location='{self.location}')"
+
+
+def generate_mock_member4_properties(count: int = 5) -> List[Property]:
+    """
+    Generates simulated Property objects created by Member 4.
+    """
+    types = ["apartment", "villa", "duplex", "house", "ensuite"]
+    cities = ["London", "Manchester", "Leicester", "Cardiff", "Oxford"]
+
+    mock_properties: List[Property] = []
+    for i in range(1, count + 1):
+        rand_id = f"MOCK_PROP_M4_{random.randint(10000, 99999)}"
+        ptype = random.choice(types)
+        city = random.choice(cities)
+        price = random.randint(120, 950) * 1000 if ptype != "ensuite" else random.randint(100, 220)
+        beds = random.randint(1, 4)
+        baths = max(1, beds - 1)
+
+        mock_properties.append(Property(
+            property_id=rand_id,
+            property_type=ptype,
+            location=f"{city} High Street",
+            price=price,
+            bedrooms=beds,
+            bathrooms=baths,
+            listing_url=f"https://member4-properties.co.uk/listings/{rand_id}"
+        ))
+
+    return mock_properties

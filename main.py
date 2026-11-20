@@ -64,6 +64,61 @@ def handle_process_collected_data():
                 print(f"    x {err}")
 
 
+def handle_simulate_and_merge_member_sources():
+    """
+    Option to test open multi-source merging:
+    Ingests live/mock batches from Member 1 (Data Collection) and Member 4 (Properties Domain),
+    merges them into a unified stream, validates every record, and displays the processed results.
+    """
+    print("\n" + "=" * 65)
+    print("  SIMULATE & TEST OPEN MERGE FROM MEMBER 1 & MEMBER 4  ")
+    print("=" * 65)
+    print("[*] Contacting Member 1 (Data Collection)... Generating batch of 4 records.")
+    from src.data_collection import generate_mock_collected_properties
+    from src.property_search import generate_mock_member4_properties, Property
+    from src.data_cleaning import merge_and_process_member_sources
+
+    m1_records = generate_mock_collected_properties(count=4)
+    print(f"    ✓ Member 1 produced {len(m1_records)} records.")
+
+    print("[*] Contacting Member 4 (Properties Domain)... Generating batch of 4 Property objects.")
+    m4_entities = generate_mock_member4_properties(count=4)
+    print(f"    ✓ Member 4 produced {len(m4_entities)} domain entities.")
+
+    print("[*] Merging Member 1 & Member 4 streams into Data Processing Pipeline...")
+    valid_merged, rejected_merged = merge_and_process_member_sources(
+        collection_records=m1_records,
+        property_entities=m4_entities
+    )
+
+    display_records(valid_merged, f"Merged & Validated Properties ({len(valid_merged)} records)")
+
+    if rejected_merged:
+        print(f"\n--- Rejected During Merge ({len(rejected_merged)} records) ---")
+        for rej in rejected_merged:
+            print(f"  x ID: {rej['record'].get('property_id')} - Errors: {rej['errors']}")
+
+    save_choice = input("\nWould you like to persist these merged valid records to Data/properties.csv? (y/n) [default: y]: ").strip().lower()
+    if save_choice != "n":
+        try:
+            with open(DATA_FILE_PATH, mode="a", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                for r in valid_merged:
+                    writer.writerow([
+                        r["property_id"],
+                        r["property_type"],
+                        r["location"],
+                        r["price"],
+                        r["bedrooms"],
+                        r["bathrooms"],
+                        r["listing_url"]
+                    ])
+            print(f"[SUCCESS] Appended {len(valid_merged)} merged records to {DATA_FILE_PATH}!")
+        except Exception as e:
+            print(f"[!] Error saving to file: {e}")
+    print("=" * 65)
+
+
 def handle_manual_validation():
     """Reads listing URL, automatically extracts real property data, validates it, and saves it."""
     print("\n" + "=" * 65)
@@ -143,24 +198,27 @@ def main():
         print("\n" + "=" * 65)
         print("  REAL ESTATE DATA ANALYSIS TOOL - DATA PROCESSING PIPELINE  ")
         print("=" * 65)
-        print("1. Process & Validate Collected Properties (Open Ingestion Pipeline)")
-        print("2. Validate a Single Property Record Manually")
-        print("3. Run Test Suites & Check Coverage (CO7095 QA Standard)")
-        print("4. Exit")
+        print("1. Process & Validate Stored Properties (Data/properties.csv)")
+        print("2. Merge & Process Member 1 & Member 4 Sources (Open Simulation)")
+        print("3. Automated Property URL Ingestion & Real Data Validation")
+        print("4. Run Test Suites & Check Coverage (CO7095 QA Standard)")
+        print("5. Exit")
         print("=" * 65)
 
-        choice = input("Select an option (1-4): ").strip()
+        choice = input("Select an option (1-5): ").strip()
         if choice == "1":
             handle_process_collected_data()
         elif choice == "2":
-            handle_manual_validation()
+            handle_simulate_and_merge_member_sources()
         elif choice == "3":
-            handle_run_all_tests()
+            handle_manual_validation()
         elif choice == "4":
+            handle_run_all_tests()
+        elif choice == "5":
             print("\nExiting application. Goodbye!")
             break
         else:
-            print("[!] Invalid option. Please enter 1, 2, 3, or 4.")
+            print("[!] Invalid option. Please enter 1, 2, 3, 4, or 5.")
 
 
 if __name__ == "__main__":

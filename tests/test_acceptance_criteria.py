@@ -166,6 +166,18 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(len(valid_recs), 1)
         self.assertEqual(len(rejected_recs), 0)
 
+        # 4. Open multi-source merging from Member 1 and Member 4
+        from src.data_cleaning import merge_and_process_member_sources
+        from src.data_collection import generate_mock_collected_properties
+        from src.property_search import generate_mock_member4_properties
+
+        m1_batch = generate_mock_collected_properties(count=3)
+        m4_batch = generate_mock_member4_properties(count=3)
+
+        merged_valid, merged_rej = merge_and_process_member_sources(m1_batch, m4_batch)
+        self.assertEqual(len(merged_valid), 6)
+        self.assertEqual(len(merged_rej), 0)
+
     # -------------------------------------------------------------------------
     # URL Processing and Details Extraction Tests
     # -------------------------------------------------------------------------

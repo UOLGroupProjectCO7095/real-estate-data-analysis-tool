@@ -407,6 +407,41 @@ def filter_valid_records(records: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
 # ==============================================================================
 # Open Integration Pipeline: Auto-connect to Member 1 & Member 4 once available
 # ==============================================================================
+def merge_and_process_member_sources(
+    collection_records: Optional[List[Dict[str, Any]]] = None,
+    property_entities: Optional[List[Any]] = None
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Openly merges records from both Data Collection (Member 1) and Properties (Member 4),
+    then validates and filters the merged stream.
+
+    Parameters:
+        collection_records: Raw dictionaries from Member 1 (data collection).
+        property_entities: Property objects or dicts from Member 4 (properties domain).
+
+    Returns:
+        Tuple[List[dict], List[dict]]: (valid_merged_records, rejected_merged_records)
+    """
+    combined: List[Dict[str, Any]] = []
+
+    # 1. Ingest records from Member 1 (Data Collection)
+    if collection_records:
+        for rec in collection_records:
+            if isinstance(rec, dict):
+                combined.append(rec)
+
+    # 2. Ingest records from Member 4 (Properties Domain)
+    if property_entities:
+        for entity in property_entities:
+            if hasattr(entity, "to_dict"):
+                combined.append(entity.to_dict())
+            elif isinstance(entity, dict):
+                combined.append(entity)
+
+    # 3. Validate and filter the combined dataset
+    return filter_valid_records(combined)
+
+
 def process_pipeline_records(raw_source: Optional[Any] = None) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Open ingestion interface:
