@@ -11,8 +11,6 @@ PROP1009,apartment,Cardiff Bay,300000,2,1,https://properties.example.com/1009
 PROP1010,duplex,Liverpool Dock,275000,2,2,https://properties.example.com/1010
 PROP1011,land,York Countryside,150000,0,0,https://properties.example.com/1011
 PROP1012,apartment,Newcastle Centre,180000,1,1,https://properties.example.com/1012
-PROP_2106166153995,ensuite,Leicester,114,1,1,https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995?range_available_price=79%2C150&move_in_month=jan-2027&meta_types=ensuite
-PROP_1608300341147,apartment,Leicester,115,1,1,https://amberstudent.com/places/ben-russell-court-leicester-1608300341147
 MOCK_COLLECT_40104,studio,Leeds Central,314000,0,1,https://realestate-mock.co.uk/places/studio-leeds-MOCK_COLLECT_40104
 MOCK_COLLECT_80082,apartment,Leeds Central,753000,3,2,https://realestate-mock.co.uk/places/apartment-leeds-MOCK_COLLECT_80082
 MOCK_COLLECT_88309,condo,Edinburgh Central,199000,5,4,https://realestate-mock.co.uk/places/condo-edinburgh-MOCK_COLLECT_88309
@@ -21,10 +19,4 @@ MOCK_PROP_M4_94320,house,Manchester High Street,430000.0,2.0,1.0,https://member4
 MOCK_PROP_M4_32501,apartment,Manchester High Street,299000.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_32501
 MOCK_PROP_M4_84938,villa,Oxford High Street,651000.0,1.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_84938
 MOCK_PROP_M4_95773,ensuite,Oxford High Street,217.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_95773
-PROP_2103176973356,apartment,Leicester,115,1,1,https://amberstudent.com/places/queens-court-leicester-2103176973356
-PROP_2103176973356,apartment,"Leicester (85 Jarrom St, LE2 7DJ)",89,1,1,https://amberstudent.com/places/queens-court-leicester-2103176973356
-PROP_2103176973356,apartment,Leicester,115,1,1,https://amberstudent.com/places/queens-court-leicester-2103176973356
-PROP_2103176973356,apartment,"Leicester (85 Jarrom St, LE2 7DJ)",89,1,1,https://amberstudent.com/places/queens-court-leicester-2103176973356
-PROP_2101153398144,apartment,Leicester,115,1,1,https://amberstudent.com/places/the-grange-leicester-2101153398144
 PROP_2005064014733,house,Leicester,115,1,1,https://amberstudent.com/places/pennine-house-leicester-2005064014733
-PROP_2106166153995,ensuite,"Leicester (44 York St / Dover St, LE1)",114,1,1,https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995
