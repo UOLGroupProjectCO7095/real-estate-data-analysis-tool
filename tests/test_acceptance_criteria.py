@@ -225,6 +225,307 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(d3["property_type"], "apartment")
         self.assertEqual(d3["location"], "City Centre")
 
+    # =========================================================================
+    # Acceptance Tests for the 8 Validation Areas
+    # =========================================================================
+    def test_acceptance_area_1_data_type_validation(self):
+        from src.data_cleaning import validate_data_types
+        # Valid data types
+        valid_rec = {
+            "property_id": "PROP100",
+            "property_type": "flat",
+            "location": "Manchester City",
+            "price": 250000.0,
+            "bedrooms": 2,
+            "bathrooms": 1.5,
+            "listing_url": "https://example.com/p100"
+        }
+        ok, errors = validate_data_types(valid_rec)
+        self.assertTrue(ok)
+        self.assertEqual(len(errors), 0)
+
+        # Invalid data types: float bedroom (2.5), non-numeric price, bool bathrooms
+        bad_types = {
+            "property_id": "PROP101",
+            "property_type": 12345,  # non-string
+            "location": "Manchester",
+            "price": "not_numeric",  # non-numeric price
+            "bedrooms": 2.5,         # float bedroom rejected
+            "bathrooms": True,       # bool bathroom rejected
+            "listing_url": "https://example.com/p101"
+        }
+        ok_bad, bad_errors = validate_data_types(bad_types)
+        self.assertFalse(ok_bad)
+        self.assertTrue(any("bedrooms must be a whole integer" in e for e in bad_errors))
+        self.assertTrue(any("price" in e and "not a numeric value" in e for e in bad_errors))
+        self.assertTrue(any("bathrooms must be numeric" in e for e in bad_errors))
+        self.assertTrue(any("property_type must be a textual string" in e for e in bad_errors))
+
+    def test_acceptance_area_2_price_boundary_validation(self):
+        from src.data_cleaning import validate_price_boundaries
+        # Positive and within configured limits [100.0, 50,000,000.0]
+        self.assertTrue(validate_price_boundaries(450000, min_price=100.0, max_price=50_000_000.0)[0])
+        self.assertTrue(validate_price_boundaries("£1,250,000", min_price=100.0, max_price=50_000_000.0)[0])
+
+        # Below configured minimum
+        ok_low, msg_low = validate_price_boundaries(50.0, min_price=100.0)
+        self.assertFalse(ok_low)
+        self.assertIn("below configured minimum", msg_low)
+
+        # Above configured maximum
+        ok_high, msg_high = validate_price_boundaries(60_000_000.0, max_price=50_000_000.0)
+        self.assertFalse(ok_high)
+        self.assertIn("exceeds configured maximum", msg_high)
+
+    def test_acceptance_area_3_property_attribute_validation(self):
+        from src.data_cleaning import validate_property_attributes
+        valid_attr = {
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "size_sqft": 1200.5,
+            "year_built": 2018
+        }
+        ok, errors = validate_property_attributes(valid_attr)
+        self.assertTrue(ok)
+        self.assertEqual(len(errors), 0)
+
+        # Invalid attributes: size negative, year_built out of range
+        bad_attr = {
+            "bedrooms": 150,  # exceeds 100
+            "bathrooms": -1,  # negative
+            "size_sqft": -500, # negative size
+            "year_built": 1400 # too old
+        }
+        ok_bad, bad_errors = validate_property_attributes(bad_attr)
+        self.assertFalse(ok_bad)
+        self.assertTrue(any("exceeds reasonable limit" in e for e in bad_errors))
+        self.assertTrue(any("cannot be negative" in e for e in bad_errors))
+        self.assertTrue(any("size_sqft must be greater than zero" in e for e in bad_errors))
+        self.assertTrue(any("year_built" in e for e in bad_errors))
+
+    def test_acceptance_area_4_property_type_validation_rubric_categories(self):
+        from src.data_cleaning import check_property_type_format
+        # Supported categories from coursework rubric
+        for rubric_type in ["Detached", "Semi-detached", "Flat", "Terraced", "Bungalow", "Cottage"]:
+            with self.subTest(ptype=rubric_type):
+                ok, msg = check_property_type_format(rubric_type)
+                self.assertTrue(ok, f"Expected {rubric_type} to be supported: {msg}")
+
+        # Unsupported category
+        ok_bad, msg_bad = check_property_type_format("Spaceship_Station")
+        self.assertFalse(ok_bad)
+        self.assertIn("Invalid property_type", msg_bad)
+
+    def test_acceptance_area_5_location_format_validation(self):
+        from src.data_cleaning import validate_location_format
+        # Valid locations
+        self.assertTrue(validate_location_format("Leicester (85 Jarrom St, LE2 7DJ)")[0])
+        self.assertTrue(validate_location_format("London Central, Westminster")[0])
+        self.assertTrue(validate_location_format("Oxford High Street")[0])
+
+        # Invalid locations
+        self.assertFalse(validate_location_format("")[0])
+        self.assertFalse(validate_location_format("   ")[0])
+        self.assertFalse(validate_location_format(None)[0])
+        self.assertFalse(validate_location_format("12345")[0]) # Purely numbers
+        self.assertFalse(validate_location_format("---")[0])   # Purely symbols
+
+    def test_acceptance_area_6_date_validation_and_chronology(self):
+        from src.data_cleaning import validate_date_format, validate_date_chronology
+        # Valid date formats
+        self.assertTrue(validate_date_format("2026-11-20", "listing_date")[0])
+        self.assertTrue(validate_date_format("2026-11-20T10:30:00", "updated_date")[0])
+
+        # Invalid date format
+        self.assertFalse(validate_date_format("not-a-date", "listing_date")[0])
+        self.assertFalse(validate_date_format("1920-01-01", "listing_date")[0]) # Out of realistic range
+
+        # Date chronology
+        self.assertTrue(validate_date_chronology("2026-11-01", "2026-11-20")[0])
+        ok_rev, msg_rev = validate_date_chronology("2026-11-20", "2026-11-01")
+        self.assertFalse(ok_rev)
+        self.assertIn("cannot be earlier than listing_date", msg_rev)
+
+    def test_acceptance_area_7_cross_field_consistency(self):
+        from src.data_cleaning import validate_cross_field_consistency
+        # 1. Studio with 4 bedrooms is inconsistent
+        bad_studio = {"property_type": "studio", "bedrooms": 4, "bathrooms": 1}
+        ok_s, err_s = validate_cross_field_consistency(bad_studio)
+        self.assertFalse(ok_s)
+        self.assertTrue(any("studio' cannot have 4 bedrooms" in e for e in err_s))
+
+        # 2. Studio with 0 or 1 bedroom is consistent
+        good_studio = {"property_type": "studio", "bedrooms": 0, "bathrooms": 1}
+        self.assertTrue(validate_cross_field_consistency(good_studio)[0])
+
+        # 3. Land with bedrooms/bathrooms is inconsistent
+        bad_land = {"property_type": "land", "bedrooms": 2, "bathrooms": 1}
+        ok_l, err_l = validate_cross_field_consistency(bad_land)
+        self.assertFalse(ok_l)
+        self.assertTrue(any("land' cannot have 2 bedrooms" in e for e in err_l))
+
+        # 4. Land with 0 bedrooms and 0 bathrooms is consistent
+        good_land = {"property_type": "land", "bedrooms": 0, "bathrooms": 0}
+        self.assertTrue(validate_cross_field_consistency(good_land)[0])
+
+        # 5. Extreme bedroom to bathroom discrepancy (5 beds, 0 baths)
+        bad_ratio = {"property_type": "house", "bedrooms": 5, "bathrooms": 0}
+        ok_r, err_r = validate_cross_field_consistency(bad_ratio)
+        self.assertFalse(ok_r)
+        self.assertTrue(any("cannot have 0 bathrooms" in e for e in err_r))
+
+    def test_acceptance_area_8_allowed_value_validation(self):
+        from src.data_cleaning import validate_allowed_values
+        valid_opts = {
+            "property_type": "terraced",
+            "status": "available",
+            "furnishing": "furnished",
+            "tenure": "freehold"
+        }
+        ok, errors = validate_allowed_values(valid_opts)
+        self.assertTrue(ok)
+        self.assertEqual(len(errors), 0)
+
+        # Invalid options
+        bad_opts = {
+            "property_type": "terraced",
+            "status": "demolished",  # unsupported status
+            "furnishing": "gold-plated", # unsupported furnishing
+            "tenure": "alien_lease"  # unsupported tenure
+        }
+        ok_bad, bad_errors = validate_allowed_values(bad_opts)
+        self.assertFalse(ok_bad)
+        self.assertTrue(any("Invalid 'status'" in e for e in bad_errors))
+        self.assertTrue(any("Invalid 'furnishing'" in e for e in bad_errors))
+        self.assertTrue(any("Invalid 'tenure'" in e for e in bad_errors))
+
+    # =========================================================================
+    # Acceptance Tests for User Story 2: Duplicate Property Record Detection & Handling
+    # =========================================================================
+    def test_duplicate_criterion_1_exact_id_duplicates(self):
+        from src.data_cleaning import is_exact_duplicate, identify_duplicates
+        rec1 = self.valid_record.copy()
+        rec2 = self.valid_record.copy()
+        rec2["price"] = 430000.0  # slight variation but identical ID
+
+        is_dup, reason = is_exact_duplicate(rec1, rec2)
+        self.assertTrue(is_dup)
+        self.assertIn("Exact property_id match", reason)
+
+        # In dataset identification
+        report = identify_duplicates([rec1, rec2])
+        self.assertEqual(report["total_records"], 2)
+        self.assertEqual(report["unique_count"], 1)
+        self.assertEqual(report["duplicate_count"], 1)
+        self.assertEqual(report["duplicate_records"][0]["property_id"], rec2["property_id"])
+
+    def test_duplicate_criterion_2_listing_url_duplicates(self):
+        from src.data_cleaning import is_url_duplicate, canonicalize_url
+        rec1 = {
+            "property_id": "PROP_SOURCE_A_101",
+            "property_type": "apartment",
+            "location": "Leicester City",
+            "price": 120,
+            "bedrooms": 1,
+            "bathrooms": 1,
+            "listing_url": "https://amberstudent.com/places/queens-court-leicester-2103176973356?utm_source=google"
+        }
+        rec2 = {
+            "property_id": "PROP_SOURCE_B_999",  # different ID
+            "property_type": "apartment",
+            "location": "Leicester",
+            "price": 120,
+            "bedrooms": 1,
+            "bathrooms": 1,
+            "listing_url": "https://amberstudent.com/places/queens-court-leicester-2103176973356/"  # trailing slash, no tracking query
+        }
+
+        # Canonical URLs match
+        self.assertEqual(canonicalize_url(rec1["listing_url"]), canonicalize_url(rec2["listing_url"]))
+
+        # URL duplicate detected
+        is_dup, reason = is_url_duplicate(rec1, rec2)
+        self.assertTrue(is_dup)
+        self.assertIn("Duplicate canonical listing URL", reason)
+
+    def test_duplicate_criterion_3_semantic_attribute_duplicates(self):
+        from src.data_cleaning import is_semantic_duplicate
+        # Same physical property scraped with different IDs and slightly different URL formats
+        rec1 = {
+            "property_id": "MEMBER1_SCRAPE_55",
+            "property_type": "house",
+            "location": "Manchester South, High Street",
+            "price": 320000,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "listing_url": "https://source1.co.uk/item/55"
+        }
+        rec2 = {
+            "property_id": "MEMBER4_DOMAIN_88",
+            "property_type": "house",
+            "location": "Manchester South",
+            "price": 320000,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "listing_url": "https://source2.co.uk/listing/88"
+        }
+
+        is_sem, reason = is_semantic_duplicate(rec1, rec2)
+        self.assertTrue(is_sem)
+        self.assertIn("Semantic property duplicate", reason)
+
+    def test_duplicate_criterion_4_handling_strategies(self):
+        from src.data_cleaning import handle_duplicates
+        rec1 = {"property_id": "PROP1", "property_type": "house", "location": "Leeds", "price": 200000, "bedrooms": 3, "bathrooms": 2, "listing_url": "https://ex.com/1", "amenities": ["Garden"]}
+        rec2 = {"property_id": "PROP1", "property_type": "house", "location": "Leeds", "price": 205000, "bedrooms": 3, "bathrooms": 2, "listing_url": "https://ex.com/1", "amenities": ["Parking"]}
+        rec3 = {"property_id": "PROP2", "property_type": "flat", "location": "London", "price": 500000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://ex.com/2"}
+
+        dataset = [rec1, rec2, rec3]
+
+        # 1. Strategy: keep_first
+        kept_first, dups_first = handle_duplicates(dataset, strategy="keep_first")
+        self.assertEqual(len(kept_first), 2)
+        self.assertEqual(len(dups_first), 1)
+        self.assertEqual(kept_first[0]["price"], 200000)
+
+        # 2. Strategy: keep_last
+        kept_last, dups_last = handle_duplicates(dataset, strategy="keep_last")
+        self.assertEqual(len(kept_last), 2)
+        self.assertEqual(kept_last[0]["price"], 205000)
+
+        # 3. Strategy: flag_only
+        flagged, dups_flagged = handle_duplicates(dataset, strategy="flag_only")
+        self.assertEqual(len(flagged), 3)
+        self.assertFalse(flagged[0]["is_duplicate"])
+        self.assertTrue(flagged[1]["is_duplicate"])
+        self.assertEqual(flagged[1]["duplicate_of"], "PROP1")
+
+        # 4. Strategy: merge_records
+        merged, _ = handle_duplicates(dataset, strategy="merge_records")
+        self.assertEqual(len(merged), 2)
+        p1_merged = [m for m in merged if m["property_id"] == "PROP1"][0]
+        self.assertIn("Garden", p1_merged["amenities"])
+        self.assertIn("Parking", p1_merged["amenities"])
+
+        # 5. Strategy: remove_all (quarantine)
+        quarantined_valid, _ = handle_duplicates(dataset, strategy="remove_all")
+        self.assertEqual(len(quarantined_valid), 1)
+        self.assertEqual(quarantined_valid[0]["property_id"], "PROP2")
+
+        # 6. Invalid strategy raises ValueError
+        with self.assertRaises(ValueError):
+            handle_duplicates(dataset, strategy="unsupported_strategy")
+
+    def test_duplicate_report_generation(self):
+        from src.data_cleaning import generate_duplicate_report
+        rec1 = self.valid_record.copy()
+        rec2 = self.valid_record.copy()
+        report_text = generate_duplicate_report([rec1, rec2])
+        self.assertIn("DUPLICATE PROPERTY DETECTION REPORT", report_text)
+        self.assertIn("Total Records Analyzed : 2", report_text)
+        self.assertIn("Duplicates Detected    : 1", report_text)
+        self.assertIn("Exact property_id match", report_text)
+
 
 if __name__ == "__main__":
     unittest.main()

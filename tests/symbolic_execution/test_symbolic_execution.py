@@ -138,6 +138,91 @@ class TestSymbolicExecution(unittest.TestCase):
         # PC6: other types
         self.assertEqual(validate_property_id(3.14), (False, "property_id must be string or integer"))
 
+    # --- Symbolic Execution Tests for Cross-Field Validation Paths ---
+    def test_symbolic_cross_field_path_conditions(self):
+        from src.data_cleaning import validate_cross_field_consistency
+        # PC_CF1: ptype == 'studio' and bedrooms > 1 -> Inconsistent
+        rec_cf1 = {"property_type": "studio", "bedrooms": 3, "bathrooms": 1}
+        ok1, err1 = validate_cross_field_consistency(rec_cf1)
+        self.assertFalse(ok1)
+        self.assertIn("studio' cannot have 3 bedrooms", err1[0])
+
+        # PC_CF2: ptype == 'studio' and bedrooms <= 1 -> Consistent
+        rec_cf2 = {"property_type": "studio", "bedrooms": 0, "bathrooms": 1}
+        ok2, err2 = validate_cross_field_consistency(rec_cf2)
+        self.assertTrue(ok2)
+
+        # PC_CF3: ptype == 'land' and (bedrooms > 0 or bathrooms > 0) -> Inconsistent
+        rec_cf3 = {"property_type": "land", "bedrooms": 1, "bathrooms": 0}
+        ok3, err3 = validate_cross_field_consistency(rec_cf3)
+        self.assertFalse(ok3)
+
+        # PC_CF4: ptype == 'land' and bedrooms == 0 and bathrooms == 0 -> Consistent
+        rec_cf4 = {"property_type": "land", "bedrooms": 0, "bathrooms": 0}
+        ok4, err4 = validate_cross_field_consistency(rec_cf4)
+        self.assertTrue(ok4)
+
+    # --- Symbolic Execution Tests for Duplicate Engine Paths ---
+    def test_symbolic_duplicate_decision_tree_paths(self):
+        from src.data_cleaning import check_duplicate_pair
+        r_base = {
+            "property_id": "P_SYM_1",
+            "property_type": "apartment",
+            "location": "Cambridge",
+            "price": 300000,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://symbolic.org/p1"
+        }
+
+        # PC_DUP1: id1 == id2 -> Exact Match
+        r_pc1 = r_base.copy()
+        r_pc1["location"] = "Leeds"
+        is_dup1, reason1 = check_duplicate_pair(r_base, r_pc1)
+        self.assertTrue(is_dup1)
+        self.assertIn("Exact property_id match", reason1)
+
+        # PC_DUP2: id1 != id2 and canon(url1) == canon(url2) -> URL Duplicate
+        r_pc2 = {
+            "property_id": "P_SYM_2",
+            "property_type": "house",
+            "location": "Manchester",
+            "price": 999999,
+            "bedrooms": 5,
+            "bathrooms": 4,
+            "listing_url": "https://symbolic.org/p1?utm_campaign=test"
+        }
+        is_dup2, reason2 = check_duplicate_pair(r_base, r_pc2)
+        self.assertTrue(is_dup2)
+        self.assertIn("Duplicate canonical listing URL", reason2)
+
+        # PC_DUP3: id1 != id2 and canon(url1) != canon(url2) and semantic(r1, r2) -> Semantic Duplicate
+        r_pc3 = {
+            "property_id": "P_SYM_3",
+            "property_type": "apartment",
+            "location": "Cambridge",
+            "price": 300000,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://symbolic.org/p3"
+        }
+        is_dup3, reason3 = check_duplicate_pair(r_base, r_pc3)
+        self.assertTrue(is_dup3)
+        self.assertIn("Semantic property duplicate", reason3)
+
+        # PC_DUP4: id1 != id2 and canon(url1) != canon(url2) and not semantic(r1, r2) -> Unique
+        r_pc4 = {
+            "property_id": "P_SYM_4",
+            "property_type": "detached",
+            "location": "Cardiff",
+            "price": 500000,
+            "bedrooms": 4,
+            "bathrooms": 3,
+            "listing_url": "https://symbolic.org/p4"
+        }
+        is_dup4, _ = check_duplicate_pair(r_base, r_pc4)
+        self.assertFalse(is_dup4)
+
 
 if __name__ == "__main__":
     unittest.main()

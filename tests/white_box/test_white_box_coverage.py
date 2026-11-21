@@ -197,6 +197,169 @@ class TestWhiteBoxBranchCoverage(unittest.TestCase):
         self.assertEqual(len(rejected), 1)
         self.assertEqual(rejected[0]["index"], 1)
 
+    # =========================================================================
+    # White-Box Branch Coverage for All 8 Validation Areas
+    # =========================================================================
+    def test_white_box_validate_data_types_branches(self):
+        from src.data_cleaning import validate_data_types
+        # None and non-dict branches
+        self.assertFalse(validate_data_types(None)[0])
+        self.assertFalse(validate_data_types("not_dict")[0])
+
+        # Price branches: bool, unsupported type, string unparseable
+        self.assertFalse(validate_data_types({"price": True})[0])
+        self.assertFalse(validate_data_types({"price": ["not_num"]})[0])
+        self.assertFalse(validate_data_types({"price": "abc"})[0])
+        self.assertTrue(validate_data_types({"price": 50000})[0])
+        self.assertTrue(validate_data_types({"price": "£50,000"})[0])
+
+        # Bedrooms branches: bool, non-int float, int float, int string, non-int string, unparseable str, unsupported
+        self.assertFalse(validate_data_types({"bedrooms": True})[0])
+        self.assertFalse(validate_data_types({"bedrooms": 2.5})[0])
+        self.assertTrue(validate_data_types({"bedrooms": 2.0})[0])
+        self.assertTrue(validate_data_types({"bedrooms": "3"})[0])
+        self.assertFalse(validate_data_types({"bedrooms": "3.5"})[0])
+        self.assertFalse(validate_data_types({"bedrooms": "two"})[0])
+        self.assertFalse(validate_data_types({"bedrooms": [2]})[0])
+
+        # Bathrooms branches: bool, non-numeric str, unsupported
+        self.assertFalse(validate_data_types({"bathrooms": True})[0])
+        self.assertFalse(validate_data_types({"bathrooms": "three"})[0])
+        self.assertFalse(validate_data_types({"bathrooms": [1]})[0])
+        self.assertTrue(validate_data_types({"bathrooms": 1.5})[0])
+
+        # Textual fields non-string branches
+        self.assertFalse(validate_data_types({"property_type": 123})[0])
+        self.assertFalse(validate_data_types({"location": ["London"]})[0])
+        self.assertFalse(validate_data_types({"listing_url": 999})[0])
+
+    def test_white_box_property_attributes_branches(self):
+        from src.data_cleaning import validate_property_attributes
+        self.assertFalse(validate_property_attributes(None)[0])
+        self.assertFalse(validate_property_attributes("string")[0])
+
+        # Size branches: bool, negative, > 100k, unparseable
+        self.assertFalse(validate_property_attributes({"size_sqft": True})[0])
+        self.assertFalse(validate_property_attributes({"size_sqft": -10})[0])
+        self.assertFalse(validate_property_attributes({"size_sqft": 150_000})[0])
+        self.assertFalse(validate_property_attributes({"size_sqft": "huge"})[0])
+        self.assertTrue(validate_property_attributes({"size_sqft": 1500})[0])
+
+        # Year built branches: < 1500, > 2035, non-int
+        self.assertFalse(validate_property_attributes({"year_built": 1400})[0])
+        self.assertFalse(validate_property_attributes({"year_built": 2050})[0])
+        self.assertFalse(validate_property_attributes({"year_built": "ancient"})[0])
+        self.assertTrue(validate_property_attributes({"year_built": 2020})[0])
+
+    def test_white_box_location_format_branches(self):
+        from src.data_cleaning import validate_location_format
+        self.assertFalse(validate_location_format(None)[0])
+        self.assertFalse(validate_location_format(12345)[0])
+        self.assertFalse(validate_location_format("")[0])
+        self.assertFalse(validate_location_format("A")[0]) # < 2 letters
+        self.assertFalse(validate_location_format("12345 678")[0]) # only numbers
+        self.assertTrue(validate_location_format("Leeds Central")[0])
+
+    def test_white_box_date_branches(self):
+        from src.data_cleaning import validate_date_format, validate_date_chronology
+        self.assertFalse(validate_date_format(None)[0])
+        self.assertFalse(validate_date_format(12345)[0])
+        self.assertFalse(validate_date_format("")[0])
+        self.assertFalse(validate_date_format("invalid-date-format")[0])
+        self.assertFalse(validate_date_format("1950-01-01")[0]) # < 1970
+        self.assertFalse(validate_date_format("2099-01-01")[0]) # > current + 5
+        self.assertTrue(validate_date_format("2026-11-20")[0])
+
+        # Chronology branches
+        self.assertTrue(validate_date_chronology(None, "2026-11-20")[0])
+        self.assertTrue(validate_date_chronology("2026-11-20", None)[0])
+        self.assertFalse(validate_date_chronology("bad_date_1", "bad_date_2")[0])
+        self.assertFalse(validate_date_chronology("2026-11-20", "2026-11-01")[0]) # updated < listing
+        self.assertTrue(validate_date_chronology("2026-11-01", "2026-11-20")[0])  # updated >= listing
+
+    def test_white_box_cross_field_and_allowed_values_branches(self):
+        from src.data_cleaning import validate_cross_field_consistency, validate_allowed_values
+        self.assertFalse(validate_cross_field_consistency(None)[0])
+        self.assertFalse(validate_cross_field_consistency("not_dict")[0])
+
+        # Studio with beds > 1 vs beds <= 1
+        self.assertFalse(validate_cross_field_consistency({"property_type": "studio", "bedrooms": 3})[0])
+        self.assertTrue(validate_cross_field_consistency({"property_type": "studio", "bedrooms": 1})[0])
+
+        # Land with beds/baths vs 0
+        self.assertFalse(validate_cross_field_consistency({"property_type": "land", "bedrooms": 1, "bathrooms": 0})[0])
+        self.assertFalse(validate_cross_field_consistency({"property_type": "land", "bedrooms": 0, "bathrooms": 1})[0])
+        self.assertTrue(validate_cross_field_consistency({"property_type": "land", "bedrooms": 0, "bathrooms": 0})[0])
+
+        # Allowed values branches
+        self.assertFalse(validate_allowed_values(None)[0])
+        self.assertFalse(validate_allowed_values("not_dict")[0])
+        self.assertFalse(validate_allowed_values({"property_type": "unknown_castle"})[0])
+        self.assertFalse(validate_allowed_values({"status": "invalid_status"})[0])
+        self.assertFalse(validate_allowed_values({"furnishing": "invalid_furnishing"})[0])
+        self.assertFalse(validate_allowed_values({"tenure": "invalid_tenure"})[0])
+        self.assertTrue(validate_allowed_values({
+            "property_type": "detached",
+            "status": "available",
+            "furnishing": "furnished",
+            "tenure": "freehold"
+        })[0])
+
+    # =========================================================================
+    # White-Box Branch Coverage for Duplicate Engine
+    # =========================================================================
+    def test_white_box_canonicalize_url(self):
+        from src.data_cleaning import canonicalize_url
+        self.assertEqual(canonicalize_url(None), "")
+        self.assertEqual(canonicalize_url(12345), "")
+        url = "https://EXAMPLE.COM/places/flat-1/?utm_source=fb&utm_medium=cpc&id=10"
+        canon = canonicalize_url(url)
+        self.assertNotIn("utm_source", canon)
+        self.assertIn("id=10", canon)
+        self.assertTrue(canon.startswith("https://example.com/places/flat-1"))
+
+    def test_white_box_duplicate_pair_and_handling_branches(self):
+        from src.data_cleaning import (
+            is_exact_duplicate,
+            is_url_duplicate,
+            is_semantic_duplicate,
+            check_duplicate_pair,
+            identify_duplicates,
+            handle_duplicates,
+            deduplicate_dataset,
+            generate_duplicate_report
+        )
+        # Non-dict inputs
+        self.assertFalse(is_exact_duplicate(None, {})[0])
+        self.assertFalse(is_url_duplicate({}, None)[0])
+        self.assertFalse(is_semantic_duplicate(None, {})[0])
+
+        # Exact core fields match
+        r1 = {"property_id": "P1", "property_type": "flat", "location": "London", "price": 100, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://a.com"}
+        r2 = {"property_id": "P2", "property_type": "flat", "location": "London", "price": 100, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://a.com"}
+        self.assertTrue(is_exact_duplicate(r1, r2)[0])
+
+        # Semantic price tolerance branch (> 5% difference is NOT duplicate)
+        r3 = r1.copy()
+        r3["property_id"] = "P3"
+        r3["price"] = 200 # 100% price difference
+        self.assertFalse(is_semantic_duplicate(r1, r3, price_tolerance_pct=0.05)[0])
+
+        # identify_duplicates TypeError branch
+        with self.assertRaises(TypeError):
+            identify_duplicates("not_a_list")
+
+        # Report for empty dataset vs dataset with duplicates
+        rep_empty = generate_duplicate_report([])
+        self.assertIn("No duplicate property records were detected", rep_empty)
+
+        rep_dup = generate_duplicate_report([r1, r2])
+        self.assertIn("IDENTIFIED DUPLICATE RECORDS:", rep_dup)
+
+        # deduplicate_dataset helper
+        deduped = deduplicate_dataset([r1, r2], strategy="keep_first")
+        self.assertEqual(len(deduped), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

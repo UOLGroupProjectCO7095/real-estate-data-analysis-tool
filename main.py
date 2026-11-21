@@ -192,6 +192,74 @@ def handle_manual_validation():
     print("=" * 65)
 
 
+def handle_detect_and_handle_duplicates():
+    """
+    User Story 2: Identify Duplicate Property Records & Handle Them.
+    Scans stored properties, detects exact ID, URL, and semantic duplicates,
+    and applies configurable handling strategies (keep_first, keep_last, flag_only, merge, quarantine).
+    """
+    print("\n" + "=" * 65)
+    print("      DUPLICATE PROPERTY DETECTION & HANDLING PIPELINE          ")
+    print("=" * 65)
+    from src.data_collection import fetch_raw_collected_data
+    from src.data_cleaning import identify_duplicates, handle_duplicates, generate_duplicate_report
+
+    records = fetch_raw_collected_data()
+    print(f"[*] Ingested {len(records)} records from {DATA_FILE_PATH}")
+
+    # Generate and display duplicate report
+    report_text = generate_duplicate_report(records)
+    print("\n" + report_text)
+
+    analysis = identify_duplicates(records)
+    if analysis["duplicate_count"] == 0:
+        print("[✓] All records are unique. No deduplication required.")
+        return
+
+    print("\nSelect a Duplicate Handling Strategy:")
+    print("  1. keep_first    : Retain primary/first occurrence and separate duplicates (Default)")
+    print("  2. keep_last     : Retain latest occurrence and discard earlier duplicates")
+    print("  3. flag_only     : Keep all records but mark duplicates with audit flags")
+    print("  4. merge_records : Consolidate complementary fields into unified records")
+    print("  5. remove_all    : Strict quarantine (remove any listing involved in duplication)")
+
+    strat_choice = input("Enter choice (1-5) [default: 1]: ").strip()
+    strat_map = {
+        "1": "keep_first",
+        "2": "keep_last",
+        "3": "flag_only",
+        "4": "merge_records",
+        "5": "remove_all"
+    }
+    strategy = strat_map.get(strat_choice, "keep_first")
+    print(f"\n[*] Applying handling strategy: '{strategy}'...")
+
+    handled_records, duplicates = handle_duplicates(records, strategy=strategy)
+    display_records(handled_records, f"Resulting Records after '{strategy}' ({len(handled_records)} records)")
+
+    persist_choice = input(f"\nPersist clean deduplicated records ({len(handled_records)} rows) to Data/properties.csv? (y/n) [default: y]: ").strip().lower()
+    if persist_choice != "n":
+        try:
+            with open(DATA_FILE_PATH, mode="w", encoding="utf-8", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["property_id", "property_type", "location", "price", "bedrooms", "bathrooms", "listing_url"])
+                for r in handled_records:
+                    writer.writerow([
+                        r.get("property_id", ""),
+                        r.get("property_type", ""),
+                        r.get("location", ""),
+                        r.get("price", ""),
+                        r.get("bedrooms", ""),
+                        r.get("bathrooms", ""),
+                        r.get("listing_url", "")
+                    ])
+            print(f"[SUCCESS] Persisted {len(handled_records)} deduplicated records to {DATA_FILE_PATH}!")
+        except Exception as e:
+            print(f"[!] Error writing to file: {e}")
+
+    print("=" * 65)
+
+
 def handle_run_all_tests():
     """Runs all test suites and displays software quality metrics."""
     import run_tests_with_coverage
@@ -206,11 +274,12 @@ def main():
         print("1. Process & Validate Stored Properties (Data/properties.csv)")
         print("2. Merge & Process Member 1 & Member 4 Sources (Open Simulation)")
         print("3. Automated Property URL Ingestion & Real Data Validation")
-        print("4. Run Test Suites & Check Coverage (CO7095 QA Standard)")
-        print("5. Exit")
+        print("4. Identify & Handle Duplicate Property Records (Data Deduplication)")
+        print("5. Run Test Suites & Check Coverage (CO7095 QA Standard)")
+        print("6. Exit")
         print("=" * 65)
 
-        choice = input("Select an option (1-5): ").strip()
+        choice = input("Select an option (1-6): ").strip()
         if choice == "1":
             handle_process_collected_data()
         elif choice == "2":
@@ -218,12 +287,14 @@ def main():
         elif choice == "3":
             handle_manual_validation()
         elif choice == "4":
-            handle_run_all_tests()
+            handle_detect_and_handle_duplicates()
         elif choice == "5":
+            handle_run_all_tests()
+        elif choice == "6":
             print("\nExiting application. Goodbye!")
             break
         else:
-            print("[!] Invalid option. Please enter 1, 2, 3, 4, or 5.")
+            print("[!] Invalid option. Please enter 1, 2, 3, 4, 5, or 6.")
 
 
 if __name__ == "__main__":

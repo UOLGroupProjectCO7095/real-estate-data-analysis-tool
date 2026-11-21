@@ -111,5 +111,112 @@ class TestConcolicTesting(unittest.TestCase):
             self.assertIn(exp_path, explorer.explored_paths)
 
 
+class ConcolicDuplicateExplorer:
+    """
+    Concolic test engine exploring the duplicate detection decision tree
+    by executing concrete candidate pairs, collecting path constraints, and negating them.
+    """
+
+    def __init__(self):
+        self.explored_paths: List[str] = []
+
+    def evaluate_and_solve_next(self, pair: Tuple[dict, dict]) -> Tuple[bool, str, str, Any]:
+        from src.data_cleaning import is_exact_duplicate, is_url_duplicate, is_semantic_duplicate
+
+        rec1, rec2 = pair
+        is_exact, _ = is_exact_duplicate(rec1, rec2)
+        if is_exact:
+            path_id = "PATH_DUP_EXACT_ID"
+            # Negate: id1 != id2, canon(url1) == canon(url2), different location so only URL matches
+            next_pair = (
+                rec1,
+                {
+                    **rec1,
+                    "property_id": "DIFFERENT_ID_999",
+                    "location": "Edinburgh North",
+                    "listing_url": rec1["listing_url"] + "/?utm_source=google"
+                }
+            )
+            self.explored_paths.append(path_id)
+            return True, "Exact Duplicate", path_id, next_pair
+
+        is_url, _ = is_url_duplicate(rec1, rec2)
+        if is_url:
+            path_id = "PATH_DUP_CANONICAL_URL"
+            # Negate: canon(url1) != canon(url2), but semantic attributes match
+            next_pair = (
+                rec1,
+                {
+                    **rec1,
+                    "property_id": "DIFFERENT_ID_888",
+                    "location": rec1["location"],
+                    "listing_url": "https://different-portal.org/item"
+                }
+            )
+            self.explored_paths.append(path_id)
+            return True, "URL Duplicate", path_id, next_pair
+
+        is_sem, _ = is_semantic_duplicate(rec1, rec2)
+        if is_sem:
+            path_id = "PATH_DUP_SEMANTIC"
+            # Negate: semantic attributes mismatch
+            next_pair = (
+                rec1,
+                {
+                    "property_id": "DIFFERENT_ID_777",
+                    "property_type": "detached",
+                    "location": "Cardiff Centre",
+                    "price": 850000,
+                    "bedrooms": 5,
+                    "bathrooms": 4,
+                    "listing_url": "https://different-portal.org/unique"
+                }
+            )
+            self.explored_paths.append(path_id)
+            return True, "Semantic Duplicate", path_id, next_pair
+
+        path_id = "PATH_UNIQUE_NO_DUPLICATE"
+        self.explored_paths.append(path_id)
+        return False, "Unique", path_id, None
+
+
+class TestConcolicDuplicateTesting(unittest.TestCase):
+    """Executes concolic tree exploration for duplicate detection."""
+
+    def test_concolic_duplicate_exploration_full_tree(self):
+        explorer = ConcolicDuplicateExplorer()
+        base_rec = {
+            "property_id": "PROP_CONCOLIC_1",
+            "property_type": "apartment",
+            "location": "Leicester City",
+            "price": 150000,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://amberstudent.com/places/concolic-1"
+        }
+
+        # Concrete initial input: identical ID pair
+        current_pair = (base_rec, base_rec.copy())
+        iterations = 0
+
+        while current_pair is not None:
+            iterations += 1
+            is_dup, msg, path_id, next_pair = explorer.evaluate_and_solve_next(current_pair)
+            self.assertIsInstance(is_dup, bool)
+            self.assertIsInstance(msg, str)
+            current_pair = next_pair
+            if iterations > 10:
+                break
+
+        expected = [
+            "PATH_DUP_EXACT_ID",
+            "PATH_DUP_CANONICAL_URL",
+            "PATH_DUP_SEMANTIC",
+            "PATH_UNIQUE_NO_DUPLICATE"
+        ]
+        for exp in expected:
+            self.assertIn(exp, explorer.explored_paths)
+
+
 if __name__ == "__main__":
     unittest.main()

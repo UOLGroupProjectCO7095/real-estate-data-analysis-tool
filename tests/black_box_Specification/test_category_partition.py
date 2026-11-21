@@ -121,6 +121,106 @@ class TestCategoryPartitionValidation(unittest.TestCase):
         self.assertTrue(is_valid)
         self.assertEqual(len(errors), 0)
 
+    # =========================================================================
+    # Category 4: Duplicate Types & Partitions (Ostrand & Balcer)
+    # =========================================================================
+    def test_category_duplicate_partitions(self):
+        from src.data_cleaning import check_duplicate_pair
+        base = self.valid_baseline.copy()
+
+        # Partition 4.1: Exact ID Match
+        id_dup = self.valid_baseline.copy()
+        id_dup["location"] = "Different Location"
+        is_dup, reason = check_duplicate_pair(base, id_dup)
+        self.assertTrue(is_dup)
+        self.assertIn("Exact property_id match", reason)
+
+        # Partition 4.2: Canonical URL Match
+        url_dup = {
+            "property_id": "PROP_OTHER",
+            "property_type": "apartment",
+            "location": "Other City",
+            "price": 999999,
+            "bedrooms": 1,
+            "bathrooms": 1,
+            "listing_url": self.valid_baseline["listing_url"] + "?utm_source=test"
+        }
+        is_dup_u, reason_u = check_duplicate_pair(base, url_dup)
+        self.assertTrue(is_dup_u)
+        self.assertIn("Duplicate canonical listing URL", reason_u)
+
+        # Partition 4.3: Semantic Attribute Match
+        sem_dup = {
+            "property_id": "PROP_OTHER_2",
+            "property_type": "apartment",
+            "location": "Downtown, City Centre",
+            "price": 250000.0,
+            "bedrooms": 2,
+            "bathrooms": 1.5,
+            "listing_url": "https://other-portal.org/item/888"
+        }
+        is_dup_s, reason_s = check_duplicate_pair(base, sem_dup)
+        self.assertTrue(is_dup_s)
+        self.assertIn("Semantic property duplicate", reason_s)
+
+        # Partition 4.4: Completely Disjoint Record (Unique)
+        unique_rec = {
+            "property_id": "PROP_UNIQUE_999",
+            "property_type": "villa",
+            "location": "Edinburgh South",
+            "price": 890000.0,
+            "bedrooms": 5,
+            "bathrooms": 4,
+            "listing_url": "https://other-domain.co.uk/unique"
+        }
+        is_dup_n, _ = check_duplicate_pair(base, unique_rec)
+        self.assertFalse(is_dup_n)
+
+    # =========================================================================
+    # Category 5: Duplicate Resolution Strategy Partitions
+    # =========================================================================
+    def test_category_duplicate_resolution_strategies(self):
+        from src.data_cleaning import handle_duplicates
+        batch = [
+            self.valid_baseline.copy(),
+            self.valid_baseline.copy(),
+            {
+                "property_id": "PROP_UNIQUE",
+                "property_type": "house",
+                "location": "Bristol",
+                "price": 300000,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "listing_url": "https://unique.org/p"
+            }
+        ]
+
+        # Partition 5.1: keep_first
+        k_first, d_first = handle_duplicates(batch, strategy="keep_first")
+        self.assertEqual(len(k_first), 2)
+        self.assertEqual(len(d_first), 1)
+
+        # Partition 5.2: keep_last
+        k_last, d_last = handle_duplicates(batch, strategy="keep_last")
+        self.assertEqual(len(k_last), 2)
+
+        # Partition 5.3: flag_only
+        flagged, _ = handle_duplicates(batch, strategy="flag_only")
+        self.assertEqual(len(flagged), 3)
+
+        # Partition 5.4: merge_records
+        merged, _ = handle_duplicates(batch, strategy="merge_records")
+        self.assertEqual(len(merged), 2)
+
+        # Partition 5.5: remove_all (quarantine)
+        quarantine, _ = handle_duplicates(batch, strategy="remove_all")
+        self.assertEqual(len(quarantine), 1)
+        self.assertEqual(quarantine[0]["property_id"], "PROP_UNIQUE")
+
+        # Partition 5.6: Invalid strategy raises ValueError
+        with self.assertRaises(ValueError):
+            handle_duplicates(batch, strategy="invalid_strategy_xyz")
+
 
 if __name__ == "__main__":
     unittest.main()

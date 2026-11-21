@@ -129,6 +129,58 @@ class TestBoundaryValueAnalysis(unittest.TestCase):
         ok_bad, _ = validate_url("not_a_valid_url")
         self.assertFalse(ok_bad)
 
+    # --- Configured Price Boundaries BVA ---
+    def test_configured_price_boundaries_bva(self):
+        from src.data_cleaning import validate_price_boundaries
+        min_p = 100.0
+        max_p = 50_000_000.0
+
+        # Lower bound BVA: min_p - 0.01, min_p, min_p + 0.01
+        self.assertFalse(validate_price_boundaries(min_p - 0.01, min_p, max_p)[0])
+        self.assertTrue(validate_price_boundaries(min_p, min_p, max_p)[0])
+        self.assertTrue(validate_price_boundaries(min_p + 0.01, min_p, max_p)[0])
+
+        # Upper bound BVA: max_p - 0.01, max_p, max_p + 0.01
+        self.assertTrue(validate_price_boundaries(max_p - 0.01, min_p, max_p)[0])
+        self.assertTrue(validate_price_boundaries(max_p, min_p, max_p)[0])
+        self.assertFalse(validate_price_boundaries(max_p + 0.01, min_p, max_p)[0])
+
+    # --- Property Attribute Size BVA ---
+    def test_property_size_bva(self):
+        from src.data_cleaning import validate_property_attributes
+        # Lower bound: 0 (invalid), 0.1 (valid), 1 (valid)
+        self.assertFalse(validate_property_attributes({"size_sqft": 0})[0])
+        self.assertTrue(validate_property_attributes({"size_sqft": 0.1})[0])
+        self.assertTrue(validate_property_attributes({"size_sqft": 1})[0])
+
+        # Upper bound: 100000 (valid), 100001 (invalid)
+        self.assertTrue(validate_property_attributes({"size_sqft": 100_000})[0])
+        self.assertFalse(validate_property_attributes({"size_sqft": 100_000.1})[0])
+
+    # --- Duplicate Detection Cardinality Boundaries BVA ---
+    def test_duplicate_dataset_cardinality_boundaries(self):
+        from src.data_cleaning import identify_duplicates
+        # Boundary 0: Empty list
+        rep_0 = identify_duplicates([])
+        self.assertEqual(rep_0["total_records"], 0)
+        self.assertEqual(rep_0["duplicate_count"], 0)
+
+        # Boundary 1: Single record (no duplicates possible)
+        single = [{"property_id": "P1", "property_type": "house", "location": "London", "price": 100, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://a.com/1"}]
+        rep_1 = identify_duplicates(single)
+        self.assertEqual(rep_1["unique_count"], 1)
+        self.assertEqual(rep_1["duplicate_count"], 0)
+
+        # Boundary 2: 2 identical records (1 unique, 1 duplicate)
+        rep_2 = identify_duplicates([single[0], single[0]])
+        self.assertEqual(rep_2["unique_count"], 1)
+        self.assertEqual(rep_2["duplicate_count"], 1)
+
+        # Boundary N: 5 identical records (1 unique, 4 duplicates)
+        rep_n = identify_duplicates([single[0]] * 5)
+        self.assertEqual(rep_n["unique_count"], 1)
+        self.assertEqual(rep_n["duplicate_count"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

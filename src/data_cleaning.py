@@ -26,7 +26,7 @@ REQUIRED_PROPERTY_FIELDS: List[str] = [
     "listing_url"
 ]
 
-# Standard allowed property types in real estate domain
+# Standard allowed property types in real estate domain (including assignment rubric types)
 ALLOWED_PROPERTY_TYPES: List[str] = [
     "apartment",
     "house",
@@ -38,7 +38,40 @@ ALLOWED_PROPERTY_TYPES: List[str] = [
     "land",
     "ensuite",
     "non-ensuite",
-    "1b"
+    "1b",
+    "detached",
+    "semi-detached",
+    "flat",
+    "terraced",
+    "bungalow",
+    "cottage"
+]
+
+# Supported status options (Validation Area 8: Allowed Value Validation)
+ALLOWED_STATUSES: List[str] = [
+    "available",
+    "under_offer",
+    "sold",
+    "for_sale",
+    "for_rent",
+    "let_agreed",
+    "pending"
+]
+
+# Supported furnishing options (Validation Area 8: Allowed Value Validation)
+ALLOWED_FURNISHING: List[str] = [
+    "furnished",
+    "unfurnished",
+    "part_furnished",
+    "part-furnished"
+]
+
+# Supported tenure options (Validation Area 8: Allowed Value Validation)
+ALLOWED_TENURES: List[str] = [
+    "freehold",
+    "leasehold",
+    "share_of_freehold",
+    "commonhold"
 ]
 
 
@@ -200,13 +233,386 @@ validate_url = check_listing_url_format
 
 
 # ==============================================================================
-# Acceptance Criterion 4: The system should identify invalid property records.
+# Validation Area 1: Data Type Validation
 # ==============================================================================
-def validate_property_record(record: Any) -> Tuple[bool, List[str]]:
+def validate_data_types(record: Any) -> Tuple[bool, List[str]]:
     """
-    Validates a complete property record, executing existence and format checks.
-    Identifies all validation failures so that only correct and reliable records pass.
+    Validation Area 1: Data Type Validation.
+    Ensure prices are numeric, bedrooms are integers, bathrooms numeric,
+    and textual fields contain appropriate values.
     """
+    if record is None:
+        return False, ["RECORD_IS_NONE"]
+    if not isinstance(record, dict):
+        return False, ["RECORD_MUST_BE_DICT"]
+
+    errors: List[str] = []
+
+    # 1. Price numeric check
+    if "price" in record and record["price"] is not None:
+        p = record["price"]
+        if isinstance(p, bool):
+            errors.append("price must be numeric, not a boolean")
+        elif isinstance(p, (int, float)):
+            pass
+        elif isinstance(p, str):
+            cleaned = p.strip().replace(",", "").replace("$", "").replace("£", "")
+            try:
+                float(cleaned)
+            except ValueError:
+                errors.append(f"price '{p}' is not a numeric value")
+        else:
+            errors.append("price must be a number or numeric string")
+
+    # 2. Bedrooms whole integer check
+    if "bedrooms" in record and record["bedrooms"] is not None:
+        b = record["bedrooms"]
+        if isinstance(b, bool):
+            errors.append("bedrooms must be an integer, not a boolean")
+        elif isinstance(b, int):
+            pass
+        elif isinstance(b, float):
+            if not b.is_integer():
+                errors.append(f"bedrooms must be a whole integer, got float {b}")
+        elif isinstance(b, str):
+            try:
+                val = float(b.strip())
+                if not val.is_integer():
+                    errors.append(f"bedrooms must be a whole integer, got '{b}'")
+            except ValueError:
+                errors.append(f"bedrooms string '{b}' must be an integer")
+        else:
+            errors.append("bedrooms must be an integer or integer string")
+
+    # 3. Bathrooms numeric check
+    if "bathrooms" in record and record["bathrooms"] is not None:
+        bath = record["bathrooms"]
+        if isinstance(bath, bool):
+            errors.append("bathrooms must be numeric, not a boolean")
+        elif isinstance(bath, (int, float)):
+            pass
+        elif isinstance(bath, str):
+            try:
+                float(bath.strip())
+            except ValueError:
+                errors.append(f"bathrooms string '{bath}' must be numeric")
+        else:
+            errors.append("bathrooms must be numeric")
+
+    # 4. Textual fields check
+    for field_name in ["property_type", "location", "listing_url"]:
+        if field_name in record and record[field_name] is not None:
+            val = record[field_name]
+            if not isinstance(val, str):
+                errors.append(f"{field_name} must be a textual string")
+
+    return len(errors) == 0, errors
+
+
+# ==============================================================================
+# Validation Area 2: Price Boundary Validation
+# ==============================================================================
+def validate_price_boundaries(
+    price: Any,
+    min_price: float = 1.0,
+    max_price: float = 1_000_000_000.0
+) -> Tuple[bool, str]:
+    """
+    Validation Area 2: Price Boundary Validation.
+    Check that property prices are positive and within acceptable configured limits.
+    """
+    ok, msg = validate_price(price)
+    if not ok:
+        return False, msg
+
+    if isinstance(price, (int, float)):
+        val = float(price)
+    else:
+        cleaned = str(price).strip().replace(",", "").replace("$", "").replace("£", "")
+        val = float(cleaned)
+
+    if val < min_price:
+        return False, f"price {val} is below configured minimum boundary ({min_price})"
+    if val > max_price:
+        return False, f"price {val} exceeds configured maximum boundary ({max_price})"
+
+    return True, ""
+
+
+# ==============================================================================
+# Validation Area 3: Property Attribute Validation
+# ==============================================================================
+def validate_property_attributes(record: Any) -> Tuple[bool, List[str]]:
+    """
+    Validation Area 3: Property Attribute Validation.
+    Check valid bedroom counts, bathroom counts, property sizes and other numerical attributes.
+    """
+    if record is None or not isinstance(record, dict):
+        return False, ["Record must be a valid dictionary"]
+
+    errors: List[str] = []
+
+    # Bedroom bounds
+    if "bedrooms" in record and record["bedrooms"] is not None:
+        b_ok, b_msg = check_room_count_format(record["bedrooms"], "bedrooms")
+        if not b_ok:
+            errors.append(b_msg)
+
+    # Bathroom bounds
+    if "bathrooms" in record and record["bathrooms"] is not None:
+        bath_ok, bath_msg = check_room_count_format(record["bathrooms"], "bathrooms")
+        if not bath_ok:
+            errors.append(bath_msg)
+
+    # Optional property size (sqft / sqm)
+    for size_key in ["size_sqft", "size_sqm", "property_size"]:
+        if size_key in record and record[size_key] is not None:
+            s_val = record[size_key]
+            if isinstance(s_val, bool):
+                errors.append(f"{size_key} cannot be a boolean")
+            else:
+                try:
+                    num = float(str(s_val).strip().replace(",", ""))
+                    if num <= 0:
+                        errors.append(f"{size_key} must be greater than zero")
+                    elif num > 100_000:
+                        errors.append(f"{size_key} exceeds realistic limit (100,000)")
+                except ValueError:
+                    errors.append(f"{size_key} must be numeric")
+
+    # Optional year built
+    if "year_built" in record and record["year_built"] is not None:
+        yb = record["year_built"]
+        try:
+            yb_num = int(str(yb).strip())
+            if yb_num < 1500 or yb_num > 2035:
+                errors.append(f"year_built {yb_num} must be between 1500 and 2035")
+        except ValueError:
+            errors.append("year_built must be an integer year")
+
+    return len(errors) == 0, errors
+
+
+# ==============================================================================
+# Validation Area 5: Location Format Validation
+# ==============================================================================
+def validate_location_format(location: Any) -> Tuple[bool, str]:
+    """
+    Validation Area 5: Location Format Validation.
+    Check postcode, city and address formats against expected formats.
+    """
+    if location is None:
+        return False, "location cannot be None"
+    if not isinstance(location, str):
+        return False, "location must be a string"
+    cleaned = location.strip()
+    if not cleaned:
+        return False, "location cannot be empty or whitespace"
+
+    # Must contain at least two letters representing an area/city
+    letters = re.findall(r"[a-zA-Z]", cleaned)
+    if len(letters) < 2:
+        return False, "location must contain a valid city, area, or address name (at least 2 letters)"
+
+    # Reject purely numbers or punctuation
+    if re.fullmatch(r"^[0-9\W_]+$", cleaned):
+        return False, "location cannot consist only of digits or symbols"
+
+    return True, ""
+
+
+# ==============================================================================
+# Validation Area 6: Date Validation
+# ==============================================================================
+def validate_date_format(date_val: Any, field_name: str = "listing_date") -> Tuple[bool, str]:
+    """
+    Validation Area 6: Date Validation.
+    Validate listing dates, update dates and other date-related fields.
+    Checks ISO 8601 (YYYY-MM-DD), valid calendar dates, and realistic year bounds.
+    """
+    if date_val is None:
+        return False, f"{field_name} cannot be None"
+    if not isinstance(date_val, str):
+        return False, f"{field_name} must be a string formatted as YYYY-MM-DD"
+    cleaned = date_val.strip()
+    if not cleaned:
+        return False, f"{field_name} cannot be empty"
+
+    import datetime
+    parsed_date = None
+    for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d", "%d-%m-%Y"]:
+        try:
+            parsed_date = datetime.datetime.strptime(cleaned, fmt)
+            break
+        except ValueError:
+            continue
+
+    if parsed_date is None:
+        return False, f"{field_name} '{date_val}' is not a valid date format (expected YYYY-MM-DD)"
+
+    current_year = datetime.datetime.now().year
+    if parsed_date.year < 1970 or parsed_date.year > current_year + 5:
+        return False, f"{field_name} year {parsed_date.year} is out of realistic range (1970 - {current_year + 5})"
+
+    return True, ""
+
+
+def validate_date_chronology(listing_date: Any, updated_date: Any) -> Tuple[bool, str]:
+    """
+    Validates that updated_date is chronologically on or after listing_date.
+    """
+    if not listing_date or not updated_date:
+        return True, ""
+
+    import datetime
+    def parse_d(s):
+        for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d", "%d-%m-%Y"]:
+            try:
+                return datetime.datetime.strptime(str(s).strip(), fmt)
+            except ValueError:
+                pass
+        return None
+
+    dl = parse_d(listing_date)
+    du = parse_d(updated_date)
+    if dl is None or du is None:
+        return False, "Cannot compare invalid date formats"
+    if du < dl:
+        return False, f"updated_date ({updated_date}) cannot be earlier than listing_date ({listing_date})"
+
+    return True, ""
+
+
+# ==============================================================================
+# Validation Area 7: Cross-Field Validation
+# ==============================================================================
+def validate_cross_field_consistency(record: Any) -> Tuple[bool, List[str]]:
+    """
+    Validation Area 7: Cross-Field Validation.
+    Check whether related property attributes are logically consistent:
+    - Studio cannot have more than 1 bedroom.
+    - Land properties must have 0 bedrooms and 0 bathrooms.
+    - If updated_date and listing_date are both present, updated_date >= listing_date.
+    - Disproportionate room configurations (e.g. 4+ bedrooms with 0 bathrooms).
+    """
+    if not isinstance(record, dict):
+        return False, ["Record must be a dictionary"]
+
+    errors: List[str] = []
+    ptype = str(record.get("property_type", "")).strip().lower()
+
+    # Extract bedrooms & bathrooms safely
+    beds = None
+    try:
+        raw_b = record.get("bedrooms")
+        if raw_b is not None:
+            beds = float(raw_b)
+    except (ValueError, TypeError):
+        beds = None
+
+    baths = None
+    try:
+        raw_bath = record.get("bathrooms")
+        if raw_bath is not None:
+            baths = float(raw_bath)
+    except (ValueError, TypeError):
+        baths = None
+
+    # Rule 1: Studio bedroom consistency
+    if ptype == "studio" and beds is not None and beds > 1:
+        errors.append(f"Cross-field inconsistency: 'studio' cannot have {int(beds)} bedrooms (maximum 1 bedroom)")
+
+    # Rule 2: Land cannot have bedrooms or bathrooms
+    if ptype == "land":
+        if beds is not None and beds > 0:
+            errors.append(f"Cross-field inconsistency: 'land' cannot have {int(beds)} bedrooms (must be 0)")
+        if baths is not None and baths > 0:
+            errors.append(f"Cross-field inconsistency: 'land' cannot have {baths} bathrooms (must be 0)")
+
+    # Rule 3: Date chronology
+    if "listing_date" in record and "updated_date" in record:
+        ld = record.get("listing_date")
+        ud = record.get("updated_date")
+        if ld and ud:
+            c_ok, c_msg = validate_date_chronology(ld, ud)
+            if not c_ok:
+                errors.append(f"Cross-field inconsistency: {c_msg}")
+
+    # Rule 4: Extreme residential room discrepancy
+    if beds is not None and baths is not None:
+        if beds >= 4 and baths == 0 and ptype not in ["land", "commercial"]:
+            errors.append(f"Cross-field inconsistency: Property with {int(beds)} bedrooms cannot have 0 bathrooms")
+
+    return len(errors) == 0, errors
+
+
+# ==============================================================================
+# Validation Area 8: Allowed Value Validation
+# ==============================================================================
+def validate_allowed_values(record: Any) -> Tuple[bool, List[str]]:
+    """
+    Validation Area 8: Allowed Value Validation.
+    Ensure fields containing predefined options use supported values:
+    - property_type in ALLOWED_PROPERTY_TYPES (including Detached, Semi-detached, Flat, Terraced)
+    - status in ALLOWED_STATUSES
+    - furnishing in ALLOWED_FURNISHING
+    - tenure in ALLOWED_TENURES
+    """
+    if not isinstance(record, dict):
+        return False, ["Record must be a dictionary"]
+
+    errors: List[str] = []
+
+    # Property type check
+    ptype = record.get("property_type")
+    if ptype is not None:
+        ok, msg = check_property_type_format(ptype)
+        if not ok:
+            errors.append(msg)
+
+    # Status check (if field present)
+    if "status" in record and record["status"] is not None:
+        s_val = str(record["status"]).strip().lower()
+        if s_val not in ALLOWED_STATUSES:
+            errors.append(f"Invalid 'status' '{record['status']}'. Allowed: {ALLOWED_STATUSES}")
+
+    # Furnishing check (if field present)
+    if "furnishing" in record and record["furnishing"] is not None:
+        f_val = str(record["furnishing"]).strip().lower()
+        if f_val not in ALLOWED_FURNISHING:
+            errors.append(f"Invalid 'furnishing' '{record['furnishing']}'. Allowed: {ALLOWED_FURNISHING}")
+
+    # Tenure check (if field present)
+    if "tenure" in record and record["tenure"] is not None:
+        t_val = str(record["tenure"]).strip().lower()
+        if t_val not in ALLOWED_TENURES:
+            errors.append(f"Invalid 'tenure' '{record['tenure']}'. Allowed: {ALLOWED_TENURES}")
+
+    return len(errors) == 0, errors
+
+
+# ==============================================================================
+# Acceptance Criterion 4: The system should identify invalid property records.
+# Comprehensive multi-tier validator executing all 8 validation areas.
+# ==============================================================================
+def validate_property_record(record: Any, enable_cross_field: bool = True) -> Tuple[bool, List[str]]:
+    """
+    Validates a complete property record, executing existence and format checks across
+    all 8 validation areas:
+    1. Data Type Validation
+    2. Price Boundary Validation
+    3. Property Attribute Validation
+    4. Property Type Validation
+    5. Location Format Validation
+    6. Date Validation
+    7. Cross-Field Validation
+    8. Allowed Value Validation
+    """
+    if record is None:
+        return False, ["RECORD_IS_NONE"]
+    if not isinstance(record, dict):
+        return False, ["RECORD_MUST_BE_DICT"]
+
     errors: List[str] = []
 
     # 1. Check required fields existence
@@ -216,34 +622,88 @@ def validate_property_record(record: Any) -> Tuple[bool, List[str]]:
             errors.append(f"Missing or empty required field: {err}")
         return False, errors
 
-    # 2. Check property ID format
+    # 2. Check property ID format (Area 1 / 8)
     id_ok, id_msg = check_property_id_format(record.get("property_id"))
     if not id_ok:
         errors.append(f"Invalid 'property_id': {id_msg}")
 
-    # 3. Check property type format
+    # 3. Check property type format & allowed values (Area 4 & Area 8)
     type_ok, type_msg = check_property_type_format(record.get("property_type"))
     if not type_ok:
         errors.append(f"Invalid 'property_type': {type_msg}")
 
-    # 4. Check location
-    loc = record.get("location")
-    if loc is None or not isinstance(loc, str) or not loc.strip():
-        errors.append("Invalid 'location': location must be a non-empty string")
+    # 4. Check location format (Area 5)
+    loc_ok, loc_msg = validate_location_format(record.get("location"))
+    if not loc_ok:
+        errors.append(f"Invalid 'location': {loc_msg}")
 
-    # 5. Validate price
-    price_ok, price_msg = validate_price(record.get("price"))
+    # 5. Validate price & price boundary (Area 1 & Area 2)
+    price_ok, price_msg = validate_price_boundaries(record.get("price"))
     if not price_ok:
         errors.append(f"Invalid 'price': {price_msg}")
 
-    # 6. Check room counts
-    bed_ok, bed_msg = check_room_count_format(record.get("bedrooms"), "bedrooms")
-    if not bed_ok:
-        errors.append(f"Invalid 'bedrooms': {bed_msg}")
+    # 6. Check room counts & data types (Area 1 & Area 3)
+    raw_bed = record.get("bedrooms")
+    if isinstance(raw_bed, float) and not raw_bed.is_integer():
+        errors.append(f"Invalid 'bedrooms': bedrooms must be a whole integer, got {raw_bed}")
+    elif isinstance(raw_bed, str) and "." in raw_bed:
+        try:
+            if not float(raw_bed).is_integer():
+                errors.append(f"Invalid 'bedrooms': bedrooms must be a whole integer, got {raw_bed}")
+            else:
+                bed_ok, bed_msg = check_room_count_format(raw_bed, "bedrooms")
+                if not bed_ok:
+                    errors.append(f"Invalid 'bedrooms': {bed_msg}")
+        except ValueError:
+            bed_ok, bed_msg = check_room_count_format(raw_bed, "bedrooms")
+            if not bed_ok:
+                errors.append(f"Invalid 'bedrooms': {bed_msg}")
+    else:
+        bed_ok, bed_msg = check_room_count_format(raw_bed, "bedrooms")
+        if not bed_ok:
+            errors.append(f"Invalid 'bedrooms': {bed_msg}")
 
     bath_ok, bath_msg = check_room_count_format(record.get("bathrooms"), "bathrooms")
     if not bath_ok:
         errors.append(f"Invalid 'bathrooms': {bath_msg}")
+
+    # Optional property attributes (size, year built) (Area 3)
+    for size_key in ["size_sqft", "size_sqm", "property_size"]:
+        if size_key in record and record[size_key] is not None:
+            s_val = record[size_key]
+            try:
+                num = float(str(s_val).strip().replace(",", ""))
+                if num <= 0 or num > 100_000:
+                    errors.append(f"Invalid '{size_key}': size must be between 1 and 100,000")
+            except ValueError:
+                errors.append(f"Invalid '{size_key}': must be numeric")
+
+    # Optional allowed values (status, furnishing, tenure) (Area 8)
+    if "status" in record and record["status"] is not None:
+        if str(record["status"]).strip().lower() not in ALLOWED_STATUSES:
+            errors.append(f"Invalid 'status' '{record['status']}'. Allowed: {ALLOWED_STATUSES}")
+    if "furnishing" in record and record["furnishing"] is not None:
+        if str(record["furnishing"]).strip().lower() not in ALLOWED_FURNISHING:
+            errors.append(f"Invalid 'furnishing' '{record['furnishing']}'. Allowed: {ALLOWED_FURNISHING}")
+    if "tenure" in record and record["tenure"] is not None:
+        if str(record["tenure"]).strip().lower() not in ALLOWED_TENURES:
+            errors.append(f"Invalid 'tenure' '{record['tenure']}'. Allowed: {ALLOWED_TENURES}")
+
+    # Date validation (Area 6)
+    if "listing_date" in record and record["listing_date"] is not None:
+        d_ok, d_msg = validate_date_format(record["listing_date"], "listing_date")
+        if not d_ok:
+            errors.append(f"Invalid 'listing_date': {d_msg}")
+    if "updated_date" in record and record["updated_date"] is not None:
+        du_ok, du_msg = validate_date_format(record["updated_date"], "updated_date")
+        if not du_ok:
+            errors.append(f"Invalid 'updated_date': {du_msg}")
+
+    # Cross-field consistency (Area 7)
+    if enable_cross_field:
+        cf_ok, cf_errors = validate_cross_field_consistency(record)
+        if not cf_ok:
+            errors.extend(cf_errors)
 
     # 7. Check URL format
     url_ok, url_msg = check_listing_url_format(record.get("listing_url"))
@@ -539,6 +999,376 @@ def filter_valid_records(records: List[Dict[str, Any]]) -> Tuple[List[Dict[str, 
             })
 
     return valid_records, rejected_records
+
+
+# ==============================================================================
+# DUPLICATE RECORD IDENTIFICATION & HANDLING ENGINE
+# User Story: As a data processing team member, I want to identify duplicate
+# property records so that repeated property information can be detected and handled.
+# ==============================================================================
+
+def canonicalize_url(url: Any) -> str:
+    """
+    Normalizes a property listing URL for canonical comparison:
+    - Strips whitespace.
+    - Lowers scheme and domain.
+    - Strips trailing slashes from path.
+    - Removes common tracking query parameters (utm_*, ref, fbclid).
+    """
+    if not url or not isinstance(url, str):
+        return ""
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url.strip())
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path.rstrip("/")
+
+    # Filter out tracking query params while preserving meaningful property params
+    query_params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    tracking_keys = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "ref", "fbclid"}
+    cleaned_params = {k: v for k, v in query_params.items() if k.lower() not in tracking_keys}
+    sorted_query = urllib.parse.urlencode(cleaned_params, doseq=True)
+
+    canonical = urllib.parse.urlunparse((scheme, netloc, path, parsed.params, sorted_query, ""))
+    return canonical.rstrip("/")
+
+
+def is_exact_duplicate(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Detects if two records are exact duplicates:
+    - Matching non-empty property_id, OR
+    - Matching all core property fields.
+    """
+    if not isinstance(rec1, dict) or not isinstance(rec2, dict):
+        return False, ""
+
+    id1 = str(rec1.get("property_id", "")).strip().lower()
+    id2 = str(rec2.get("property_id", "")).strip().lower()
+    if id1 and id2 and id1 == id2:
+        return True, f"Exact property_id match: '{rec1.get('property_id')}'"
+
+    # Core field exact match
+    core_fields = ["property_type", "location", "price", "bedrooms", "bathrooms", "listing_url"]
+    if all(str(rec1.get(f, "")).strip().lower() == str(rec2.get(f, "")).strip().lower() for f in core_fields):
+        return True, "Identical property attributes across all core fields"
+
+    return False, ""
+
+
+def is_url_duplicate(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Detects if two records have identical or canonicalized listing URLs.
+    """
+    if not isinstance(rec1, dict) or not isinstance(rec2, dict):
+        return False, ""
+
+    url1 = rec1.get("listing_url")
+    url2 = rec2.get("listing_url")
+    if not url1 or not url2:
+        return False, ""
+
+    canon1 = canonicalize_url(url1)
+    canon2 = canonicalize_url(url2)
+    if canon1 and canon2 and canon1 == canon2:
+        return True, f"Duplicate canonical listing URL: '{canon1}'"
+
+    return False, ""
+
+
+def is_semantic_duplicate(
+    rec1: Dict[str, Any],
+    rec2: Dict[str, Any],
+    price_tolerance_pct: float = 0.05
+) -> Tuple[bool, str]:
+    """
+    Detects semantic / attribute duplicates:
+    Properties representing the same physical dwelling based on:
+    - Matching normalized location / city / address
+    - Matching property_type
+    - Matching bedrooms and bathrooms
+    - Comparable price (within configured percentage tolerance, default 5%)
+    """
+    if not isinstance(rec1, dict) or not isinstance(rec2, dict):
+        return False, ""
+
+    # 1. Location match (case-insensitive, normalized)
+    loc1 = re.sub(r"[^\w\s]", "", str(rec1.get("location", "")).lower()).strip()
+    loc2 = re.sub(r"[^\w\s]", "", str(rec2.get("location", "")).lower()).strip()
+    if not loc1 or not loc2:
+        return False, ""
+    loc_match = (loc1 == loc2) or (loc1 in loc2) or (loc2 in loc1)
+    if not loc_match:
+        return False, ""
+
+    # 2. Property type match
+    type1 = str(rec1.get("property_type", "")).strip().lower()
+    type2 = str(rec2.get("property_type", "")).strip().lower()
+    if not type1 or not type2 or type1 != type2:
+        return False, ""
+
+    # 3. Bedroom & bathroom match
+    try:
+        bed1 = float(rec1.get("bedrooms", -999))
+        bed2 = float(rec2.get("bedrooms", -998))
+        bath1 = float(rec1.get("bathrooms", -999))
+        bath2 = float(rec2.get("bathrooms", -998))
+        if bed1 != bed2 or bath1 != bath2:
+            return False, ""
+    except (ValueError, TypeError):
+        return False, ""
+
+    # 4. Price proximity match
+    try:
+        p1 = float(str(rec1.get("price", "0")).replace(",", "").replace("$", "").replace("£", ""))
+        p2 = float(str(rec2.get("price", "0")).replace(",", "").replace("$", "").replace("£", ""))
+        if p1 > 0 and p2 > 0:
+            diff = abs(p1 - p2) / max(p1, p2)
+            if diff > price_tolerance_pct:
+                return False, ""
+    except (ValueError, TypeError):
+        pass
+
+    return True, f"Semantic property duplicate: matching location '{loc1}', type '{type1}', {int(bed1)} bed, {int(bath1)} bath"
+
+
+def check_duplicate_pair(
+    rec1: Dict[str, Any],
+    rec2: Dict[str, Any],
+    price_tolerance_pct: float = 0.05
+) -> Tuple[bool, str]:
+    """
+    Evaluates whether two records constitute a duplicate under any detection rule.
+    Priority order:
+    1. Exact ID or identical fields
+    2. Canonical URL duplicate
+    3. Semantic attribute duplicate
+    """
+    exact, msg = is_exact_duplicate(rec1, rec2)
+    if exact:
+        return True, msg
+
+    url_dup, msg_url = is_url_duplicate(rec1, rec2)
+    if url_dup:
+        return True, msg_url
+
+    sem_dup, msg_sem = is_semantic_duplicate(rec1, rec2, price_tolerance_pct)
+    if sem_dup:
+        return True, msg_sem
+
+    return False, ""
+
+
+def identify_duplicates(
+    records: List[Dict[str, Any]],
+    price_tolerance_pct: float = 0.05
+) -> Dict[str, Any]:
+    """
+    Scans a collection of property records and identifies all duplicates.
+
+    Returns a comprehensive audit dictionary:
+    - 'total_records': total count of input records
+    - 'unique_count': count of distinct unique properties
+    - 'duplicate_count': count of identified duplicate records
+    - 'unique_records': list of primary unique records
+    - 'duplicate_records': list of duplicate records with metadata and reason
+    - 'duplicate_groups': dictionary mapping primary_id to list of duplicates
+    - 'duplicate_details': detailed log of duplicate occurrences
+    """
+    if not isinstance(records, list):
+        raise TypeError("records must be a list of dictionaries")
+
+    unique_records: List[Dict[str, Any]] = []
+    duplicate_records: List[Dict[str, Any]] = []
+    duplicate_groups: Dict[str, Dict[str, Any]] = {}
+    duplicate_details: List[Dict[str, Any]] = []
+
+    for idx, current_rec in enumerate(records):
+        if not isinstance(current_rec, dict):
+            continue
+
+        matched_primary = None
+        match_reason = ""
+        matched_primary_idx = -1
+
+        # Check against already identified unique records
+        for u_idx, u_rec in enumerate(unique_records):
+            is_dup, reason = check_duplicate_pair(current_rec, u_rec, price_tolerance_pct)
+            if is_dup:
+                matched_primary = u_rec
+                match_reason = reason
+                matched_primary_idx = u_idx
+                break
+
+        if matched_primary is not None:
+            # Current record is a duplicate
+            p_id = matched_primary.get("property_id", f"PRIMARY_AT_INDEX_{matched_primary_idx}")
+            c_id = current_rec.get("property_id", f"RECORD_AT_INDEX_{idx}")
+
+            dup_info = {
+                "index": idx,
+                "record": current_rec,
+                "property_id": c_id,
+                "duplicate_of_id": p_id,
+                "duplicate_of_index": matched_primary_idx,
+                "reason": match_reason
+            }
+            duplicate_records.append(dup_info)
+            duplicate_details.append(dup_info)
+
+            if p_id in duplicate_groups:
+                duplicate_groups[p_id]["duplicates"].append(dup_info)
+        else:
+            # Current record is unique
+            unique_records.append(current_rec)
+            p_id = current_rec.get("property_id", f"PRIMARY_AT_INDEX_{idx}")
+            duplicate_groups[p_id] = {
+                "primary_record": current_rec,
+                "primary_index": idx,
+                "duplicates": []
+            }
+
+    return {
+        "total_records": len(records),
+        "unique_count": len(unique_records),
+        "duplicate_count": len(duplicate_records),
+        "unique_records": unique_records,
+        "duplicate_records": duplicate_records,
+        "duplicate_groups": duplicate_groups,
+        "duplicate_details": duplicate_details
+    }
+
+
+def handle_duplicates(
+    records: List[Dict[str, Any]],
+    strategy: str = "keep_first",
+    price_tolerance_pct: float = 0.05
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Handles identified duplicate records according to a chosen policy:
+
+    Strategies:
+    - 'keep_first': Retains the first occurrence, separates duplicates.
+    - 'keep_last': Retains the last occurrence, separates earlier duplicates.
+    - 'flag_only': Retains all records, adding 'is_duplicate', 'duplicate_of', and 'duplicate_reason' flags.
+    - 'merge_records': Consolidates information from duplicates into primary (e.g. combines amenities, fills missing fields).
+    - 'remove_all': Quarantines all occurrences of records that have duplicates.
+
+    Returns:
+        Tuple[List[dict], List[dict]]: (handled_records, duplicate_records)
+    """
+    valid_strategies = ["keep_first", "keep_last", "flag_only", "merge_records", "remove_all"]
+    if strategy not in valid_strategies:
+        raise ValueError(f"Invalid duplicate handling strategy '{strategy}'. Allowed: {valid_strategies}")
+
+    analysis = identify_duplicates(records, price_tolerance_pct)
+
+    if strategy == "keep_first":
+        return analysis["unique_records"], analysis["duplicate_records"]
+
+    elif strategy == "keep_last":
+        # Scan in reverse to keep the last occurrence
+        rev_records = list(reversed(records))
+        rev_analysis = identify_duplicates(rev_records, price_tolerance_pct)
+        # Restore original chronological order of last seen items
+        kept_records = list(reversed(rev_analysis["unique_records"]))
+        return kept_records, analysis["duplicate_records"]
+
+    elif strategy == "flag_only":
+        dup_indices = {d["index"]: d for d in analysis["duplicate_records"]}
+        flagged_list: List[Dict[str, Any]] = []
+
+        for idx, rec in enumerate(records):
+            new_rec = rec.copy()
+            if idx in dup_indices:
+                info = dup_indices[idx]
+                new_rec["is_duplicate"] = True
+                new_rec["duplicate_of"] = info["duplicate_of_id"]
+                new_rec["duplicate_reason"] = info["reason"]
+            else:
+                new_rec["is_duplicate"] = False
+                new_rec["duplicate_of"] = None
+                new_rec["duplicate_reason"] = None
+            flagged_list.append(new_rec)
+
+        return flagged_list, analysis["duplicate_records"]
+
+    elif strategy == "merge_records":
+        merged_records: List[Dict[str, Any]] = []
+        for group in analysis["duplicate_groups"].values():
+            primary = group["primary_record"].copy()
+            # Merge fields from duplicate records
+            for dup_entry in group["duplicates"]:
+                dup_rec = dup_entry["record"]
+                for k, v in dup_rec.items():
+                    if k not in primary or primary[k] is None or primary[k] == "":
+                        primary[k] = v
+                # Combine amenities if present
+                if "amenities" in dup_rec and isinstance(dup_rec["amenities"], list):
+                    existing_amenities = set(primary.get("amenities", []))
+                    existing_amenities.update(dup_rec["amenities"])
+                    primary["amenities"] = list(existing_amenities)
+            merged_records.append(primary)
+
+        return merged_records, analysis["duplicate_records"]
+
+    elif strategy == "remove_all":
+        # Strict quarantine: only retain records that NEVER had any duplicate
+        strictly_unique: List[Dict[str, Any]] = []
+        quarantined: List[Dict[str, Any]] = []
+
+        for group in analysis["duplicate_groups"].values():
+            if len(group["duplicates"]) == 0:
+                strictly_unique.append(group["primary_record"])
+            else:
+                quarantined.append({
+                    "primary_record": group["primary_record"],
+                    "duplicates": group["duplicates"]
+                })
+
+        return strictly_unique, analysis["duplicate_records"]
+
+    return analysis["unique_records"], analysis["duplicate_records"]
+
+
+def deduplicate_dataset(
+    records: List[Dict[str, Any]],
+    strategy: str = "keep_first"
+) -> List[Dict[str, Any]]:
+    """Convenience helper: returns deduplicated dataset using specified strategy."""
+    handled, _ = handle_duplicates(records, strategy=strategy)
+    return handled
+
+
+def generate_duplicate_report(records: List[Dict[str, Any]]) -> str:
+    """
+    Generates a formatted human-readable audit report of duplicate records.
+    """
+    analysis = identify_duplicates(records)
+    lines: List[str] = [
+        "=" * 70,
+        "                  DUPLICATE PROPERTY DETECTION REPORT                  ",
+        "=" * 70,
+        f"Total Records Analyzed : {analysis['total_records']}",
+        f"Unique Properties      : {analysis['unique_count']}",
+        f"Duplicates Detected    : {analysis['duplicate_count']}",
+        "-" * 70
+    ]
+
+    if analysis["duplicate_count"] == 0:
+        lines.append("✓ No duplicate property records were detected in the dataset.")
+    else:
+        lines.append("IDENTIFIED DUPLICATE RECORDS:")
+        for idx, dup in enumerate(analysis["duplicate_records"], 1):
+            rec = dup["record"]
+            lines.append(
+                f"  [{idx}] Record ID: '{dup['property_id']}' (Index {dup['index']})\n"
+                f"      -> Duplicate of Primary ID: '{dup['duplicate_of_id']}' (Index {dup['duplicate_of_index']})\n"
+                f"      -> Detection Reason: {dup['reason']}\n"
+                f"      -> Location: {rec.get('location')} | Price: £{rec.get('price')}"
+            )
+
+    lines.append("=" * 70)
+    return "\n".join(lines)
 
 
 # ==============================================================================
