@@ -1372,6 +1372,237 @@ def generate_duplicate_report(records: List[Dict[str, Any]]) -> str:
 
 
 # ==============================================================================
+# USER STORY 2 ACCEPTANCE CRITERIA FUNCTIONS:
+# 1. The system should compare property records.
+# 2. The system should identify matching property information.
+# 3. The system should flag duplicate property records.
+# 4. The system should report detected duplicates.
+# ==============================================================================
+
+def compare_property_records(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Acceptance Criterion 1: The system should compare property records.
+
+    Performs an in-depth, field-by-field and holistic comparison between two property records:
+    - Analyzes identical vs differing fields
+    - Checks canonical URL equality
+    - Computes similarity score and determines overall duplicate status.
+
+    Returns:
+        Dict[str, Any]:
+        - 'is_match': bool indicating if the pair is considered a duplicate
+        - 'match_reason': explanation string if matched
+        - 'identical_fields': list of fields where values exactly match
+        - 'differing_fields': list of fields where values differ
+        - 'url_canonical_match': bool
+        - 'similarity_score': float in range [0.0, 1.0]
+        - 'comparison_summary': text summary of comparison findings
+    """
+    if not isinstance(rec1, dict) or not isinstance(rec2, dict):
+        return {
+            "is_match": False,
+            "match_reason": "",
+            "identical_fields": [],
+            "differing_fields": [],
+            "url_canonical_match": False,
+            "similarity_score": 0.0,
+            "comparison_summary": "One or both records are not valid dictionaries."
+        }
+
+    fields_to_compare = [
+        "property_id",
+        "property_type",
+        "location",
+        "price",
+        "bedrooms",
+        "bathrooms",
+        "listing_url"
+    ]
+
+    identical_fields: List[str] = []
+    differing_fields: List[str] = []
+
+    for f in fields_to_compare:
+        v1 = str(rec1.get(f, "")).strip().lower()
+        v2 = str(rec2.get(f, "")).strip().lower()
+        if v1 and v2 and v1 == v2:
+            identical_fields.append(f)
+        else:
+            differing_fields.append(f)
+
+    # Check canonical URL equality
+    url_canonical_match = False
+    if rec1.get("listing_url") and rec2.get("listing_url"):
+        url_canonical_match = (canonicalize_url(rec1["listing_url"]) == canonicalize_url(rec2["listing_url"]))
+
+    # Check duplicate match using the multi-tier engine
+    is_dup, reason = check_duplicate_pair(rec1, rec2)
+
+    total = len(fields_to_compare)
+    raw_similarity = len(identical_fields) / total if total > 0 else 0.0
+    if is_dup:
+        similarity_score = max(raw_similarity, 0.90 if "property_id" not in identical_fields else 1.0)
+    else:
+        similarity_score = round(raw_similarity, 2)
+
+    return {
+        "is_match": is_dup,
+        "match_reason": reason,
+        "identical_fields": identical_fields,
+        "differing_fields": differing_fields,
+        "url_canonical_match": url_canonical_match,
+        "similarity_score": similarity_score,
+        "comparison_summary": reason if is_dup else f"Records are distinct (differ in: {', '.join(differing_fields)})"
+    }
+
+
+def identify_matching_property_info(
+    rec1: Dict[str, Any],
+    rec2: Dict[str, Any],
+    price_tolerance_pct: float = 0.05
+) -> Dict[str, Any]:
+    """
+    Acceptance Criterion 2: The system should identify matching property information.
+
+    Identifies which specific pieces of property information match between two records:
+    - Exact matching attributes (ID, type, location, rooms, price, URL)
+    - Normalized/canonical matches (canonicalized URLs, normalized addresses)
+    - Value-level match map and detection categorization.
+
+    Returns:
+        Dict[str, Any]:
+        - 'has_matches': bool
+        - 'matching_attributes': list of matching attribute names
+        - 'matching_values': dict of {field_name: matched_value}
+        - 'match_category': 'EXACT_ID' | 'EXACT_ALL' | 'CANONICAL_URL' | 'SEMANTIC_ATTRIBUTES' | 'PARTIAL' | 'NONE'
+        - 'details': human-readable breakdown of what matched
+    """
+    if not isinstance(rec1, dict) or not isinstance(rec2, dict):
+        return {
+            "has_matches": False,
+            "matching_attributes": [],
+            "matching_values": {},
+            "match_category": "NONE",
+            "details": "Invalid record format"
+        }
+
+    matching_attrs: List[str] = []
+    matching_vals: Dict[str, Any] = {}
+
+    # Exact field comparisons
+    for key in ["property_id", "property_type", "location", "bedrooms", "bathrooms", "price", "listing_url"]:
+        v1 = rec1.get(key)
+        v2 = rec2.get(key)
+        if v1 is not None and v2 is not None:
+            if str(v1).strip().lower() == str(v2).strip().lower():
+                matching_attrs.append(key)
+                matching_vals[key] = v1
+
+    # Check canonical URL
+    if "listing_url" not in matching_attrs and rec1.get("listing_url") and rec2.get("listing_url"):
+        if canonicalize_url(rec1["listing_url"]) == canonicalize_url(rec2["listing_url"]):
+            matching_attrs.append("canonical_listing_url")
+            matching_vals["canonical_listing_url"] = canonicalize_url(rec1["listing_url"])
+
+    # Determine category
+    is_exact, exact_reason = is_exact_duplicate(rec1, rec2)
+    is_url, url_reason = is_url_duplicate(rec1, rec2)
+    is_sem, sem_reason = is_semantic_duplicate(rec1, rec2, price_tolerance_pct)
+
+    if is_exact:
+        category = "EXACT_ID" if "property_id" in matching_attrs else "EXACT_ALL"
+        details = exact_reason
+    elif is_url:
+        category = "CANONICAL_URL"
+        details = url_reason
+    elif is_sem:
+        category = "SEMANTIC_ATTRIBUTES"
+        details = sem_reason
+    elif len(matching_attrs) > 0:
+        category = "PARTIAL"
+        details = f"Partial match on attributes: {', '.join(matching_attrs)}"
+    else:
+        category = "NONE"
+        details = "No property attributes matched"
+
+    return {
+        "has_matches": len(matching_attrs) > 0,
+        "matching_attributes": matching_attrs,
+        "matching_values": matching_vals,
+        "match_category": category,
+        "details": details
+    }
+
+
+def flag_duplicate_property_records(
+    records: List[Dict[str, Any]],
+    price_tolerance_pct: float = 0.05
+) -> List[Dict[str, Any]]:
+    """
+    Acceptance Criterion 3: The system should flag duplicate property records.
+
+    Scans the provided dataset, identifies duplicate occurrences, and returns a new list of
+    records where every record is enriched with explicit duplication audit flags:
+    - 'is_duplicate': bool (True if duplicate of an earlier record, False if unique/primary)
+    - 'duplicate_of': property_id of the original record (or None)
+    - 'duplicate_reason': reason why it was flagged (or None)
+    - 'duplicate_flag_status': 'FLAGGED_DUPLICATE' or 'PRIMARY_RECORD'
+
+    Returns:
+        List[Dict[str, Any]]: All records with duplicate flags attached.
+    """
+    if not isinstance(records, list):
+        raise TypeError("records must be a list of dictionaries")
+
+    flagged_records, _ = handle_duplicates(
+        records,
+        strategy="flag_only",
+        price_tolerance_pct=price_tolerance_pct
+    )
+
+    for r in flagged_records:
+        if r.get("is_duplicate"):
+            r["duplicate_flag_status"] = "FLAGGED_DUPLICATE"
+        else:
+            r["duplicate_flag_status"] = "PRIMARY_RECORD"
+
+    return flagged_records
+
+
+def report_detected_duplicates(
+    records: List[Dict[str, Any]],
+    price_tolerance_pct: float = 0.05
+) -> Dict[str, Any]:
+    """
+    Acceptance Criterion 4: The system should report detected duplicates.
+
+    Generates a comprehensive audit report of detected duplicate property records:
+    - Summary metrics: total scanned, unique count, duplicate count, duplicate detection rate
+    - List of flagged duplicate items with index, offending record, primary ID, and reason
+    - Formatted human-readable report string accessible via 'formatted_report'
+    """
+    if not isinstance(records, list):
+        raise TypeError("records must be a list of dictionaries")
+
+    analysis = identify_duplicates(records, price_tolerance_pct=price_tolerance_pct)
+    formatted_text = generate_duplicate_report(records)
+
+    total = analysis["total_records"]
+    dups = analysis["duplicate_count"]
+    dup_rate = round((dups / total * 100.0), 2) if total > 0 else 0.0
+
+    return {
+        "total_records_analyzed": total,
+        "unique_records_count": analysis["unique_count"],
+        "duplicates_detected_count": dups,
+        "duplicate_detection_rate_pct": dup_rate,
+        "detected_duplicates": analysis["duplicate_records"],
+        "duplicate_groups": analysis["duplicate_groups"],
+        "formatted_report": formatted_text
+    }
+
+
+# ==============================================================================
 # Open Integration Pipeline: Auto-connect to Member 1 & Member 4 once available
 # ==============================================================================
 def merge_and_process_member_sources(

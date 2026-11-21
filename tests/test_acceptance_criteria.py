@@ -1,11 +1,21 @@
 """
-Acceptance Criteria Verification Test Suite.
+Acceptance Criteria Verification Test Suite (Member 2 - Data Processing).
 
-Directly maps to the 4 user acceptance criteria:
+USER STORY 1: Clean Property Data
+As a data processing team member, I want to clean property data so that the analysis is based on accurate and complete information.
+Acceptance Criteria:
 1. The system should check required property fields.
 2. The system should validate property prices.
 3. The system should check property information formats.
-4. The system should identify invalid property records.
+4. The system should identify invalid property records (including the 8 rubric validation areas).
+
+USER STORY 2: Identify Duplicate Property Records
+As a data processing team member, I want to identify duplicate property records so that repeated property information can be detected and handled.
+Acceptance Criteria:
+1. The system should compare property records.
+2. The system should identify matching property information.
+3. The system should flag duplicate property records.
+4. The system should report detected duplicates.
 """
 
 import unittest
@@ -525,6 +535,150 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertIn("Total Records Analyzed : 2", report_text)
         self.assertIn("Duplicates Detected    : 1", report_text)
         self.assertIn("Exact property_id match", report_text)
+
+    # =========================================================================
+    # USER STORY 2: DIRECT ACCEPTANCE CRITERIA VERIFICATION
+    # 1. The system should compare property records.
+    # 2. The system should identify matching property information.
+    # 3. The system should flag duplicate property records.
+    # 4. The system should report detected duplicates.
+    # =========================================================================
+
+    # Criterion 1: The system should compare property records.
+    def test_user_story_2_criterion_1_compare_property_records(self):
+        from src.data_cleaning import compare_property_records
+        rec1 = self.valid_record.copy()
+        rec2 = self.valid_record.copy()
+
+        # Identical comparison
+        res_ident = compare_property_records(rec1, rec2)
+        self.assertTrue(res_ident["is_match"])
+        self.assertEqual(len(res_ident["differing_fields"]), 0)
+        self.assertEqual(res_ident["similarity_score"], 1.0)
+        self.assertIn("property_id", res_ident["identical_fields"])
+
+        # Differing comparison (same ID but different location/price)
+        rec_diff = self.valid_record.copy()
+        rec_diff["location"] = "Leeds Central"
+        rec_diff["price"] = 999000
+        res_diff = compare_property_records(rec1, rec_diff)
+        self.assertTrue(res_diff["is_match"]) # Matched on property_id
+        self.assertIn("location", res_diff["differing_fields"])
+        self.assertIn("price", res_diff["differing_fields"])
+
+        # Completely distinct records
+        rec_other = {
+            "property_id": "PROP_DISTINCT_888",
+            "property_type": "land",
+            "location": "Yorkshire Green",
+            "price": 100000,
+            "bedrooms": 0,
+            "bathrooms": 0,
+            "listing_url": "https://distinct.org/item"
+        }
+        res_other = compare_property_records(rec1, rec_other)
+        self.assertFalse(res_other["is_match"])
+        self.assertEqual(len(res_other["identical_fields"]), 0)
+
+        # Invalid input comparison
+        res_invalid = compare_property_records(None, rec1)
+        self.assertFalse(res_invalid["is_match"])
+
+    # Criterion 2: The system should identify matching property information.
+    def test_user_story_2_criterion_2_identify_matching_property_info(self):
+        from src.data_cleaning import identify_matching_property_info
+        rec1 = {
+            "property_id": "PROP100",
+            "property_type": "flat",
+            "location": "Leicester City",
+            "price": 150000,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://amberstudent.com/places/flat-100?utm_source=ad"
+        }
+        rec2 = {
+            "property_id": "PROP999",  # different ID
+            "property_type": "flat",    # matching
+            "location": "Leicester City", # matching
+            "price": 150000,            # matching
+            "bedrooms": 2,              # matching
+            "bathrooms": 1,              # matching
+            "listing_url": "https://amberstudent.com/places/flat-100/" # canonical URL matching
+        }
+
+        match_info = identify_matching_property_info(rec1, rec2)
+        self.assertTrue(match_info["has_matches"])
+        self.assertIn("property_type", match_info["matching_attributes"])
+        self.assertIn("location", match_info["matching_attributes"])
+        self.assertIn("bedrooms", match_info["matching_attributes"])
+        self.assertIn("canonical_listing_url", match_info["matching_attributes"])
+        self.assertEqual(match_info["match_category"], "CANONICAL_URL")
+
+        # Distinct records
+        rec3 = {"property_id": "P3", "property_type": "villa", "location": "Bristol", "price": 900000, "bedrooms": 5, "bathrooms": 4, "listing_url": "https://bristol.org"}
+        distinct_info = identify_matching_property_info(rec1, rec3)
+        self.assertEqual(distinct_info["match_category"], "NONE")
+
+        # Invalid dictionary input
+        self.assertFalse(identify_matching_property_info(None, None)["has_matches"])
+
+    # Criterion 3: The system should flag duplicate property records.
+    def test_user_story_2_criterion_3_flag_duplicate_property_records(self):
+        from src.data_cleaning import flag_duplicate_property_records
+        rec1 = {"property_id": "P1", "property_type": "flat", "location": "London", "price": 400000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://ex.com/p1"}
+        rec2 = {"property_id": "P1", "property_type": "flat", "location": "London", "price": 400000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://ex.com/p1"}
+        rec3 = {"property_id": "P2", "property_type": "house", "location": "Leeds", "price": 200000, "bedrooms": 3, "bathrooms": 2, "listing_url": "https://ex.com/p2"}
+
+        dataset = [rec1, rec2, rec3]
+        flagged = flag_duplicate_property_records(dataset)
+
+        self.assertEqual(len(flagged), 3)
+
+        # First record is primary
+        self.assertFalse(flagged[0]["is_duplicate"])
+        self.assertIsNone(flagged[0]["duplicate_of"])
+        self.assertEqual(flagged[0]["duplicate_flag_status"], "PRIMARY_RECORD")
+
+        # Second record is flagged duplicate
+        self.assertTrue(flagged[1]["is_duplicate"])
+        self.assertEqual(flagged[1]["duplicate_of"], "P1")
+        self.assertEqual(flagged[1]["duplicate_flag_status"], "FLAGGED_DUPLICATE")
+        self.assertIn("Exact property_id match", flagged[1]["duplicate_reason"])
+
+        # Third record is primary
+        self.assertFalse(flagged[2]["is_duplicate"])
+        self.assertEqual(flagged[2]["duplicate_flag_status"], "PRIMARY_RECORD")
+
+        # Non-list input raises TypeError
+        with self.assertRaises(TypeError):
+            flag_duplicate_property_records("not_a_list")
+
+    # Criterion 4: The system should report detected duplicates.
+    def test_user_story_2_criterion_4_report_detected_duplicates(self):
+        from src.data_cleaning import report_detected_duplicates
+        rec1 = {"property_id": "PROP_A", "property_type": "studio", "location": "Manchester", "price": 100000, "bedrooms": 0, "bathrooms": 1, "listing_url": "https://manchester.org/1"}
+        rec2 = {"property_id": "PROP_A", "property_type": "studio", "location": "Manchester", "price": 100000, "bedrooms": 0, "bathrooms": 1, "listing_url": "https://manchester.org/1"}
+        rec3 = {"property_id": "PROP_B", "property_type": "studio", "location": "Manchester", "price": 100000, "bedrooms": 0, "bathrooms": 1, "listing_url": "https://manchester.org/2"}
+
+        report = report_detected_duplicates([rec1, rec2, rec3])
+
+        # Validate audit metrics
+        self.assertEqual(report["total_records_analyzed"], 3)
+        self.assertEqual(report["duplicates_detected_count"], 2) # rec2 exact ID, rec3 semantic
+        self.assertEqual(report["unique_records_count"], 1)
+        self.assertGreater(report["duplicate_detection_rate_pct"], 0.0)
+
+        # Validate duplicate items list
+        self.assertEqual(len(report["detected_duplicates"]), 2)
+        self.assertEqual(report["detected_duplicates"][0]["duplicate_of_id"], "PROP_A")
+
+        # Validate formatted text report
+        self.assertIn("DUPLICATE PROPERTY DETECTION REPORT", report["formatted_report"])
+        self.assertIn("Duplicates Detected", report["formatted_report"])
+
+        # Non-list input raises TypeError
+        with self.assertRaises(TypeError):
+            report_detected_duplicates(12345)
 
 
 if __name__ == "__main__":
