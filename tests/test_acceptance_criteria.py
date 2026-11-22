@@ -584,6 +584,17 @@ class TestAcceptanceCriteria(unittest.TestCase):
         res_invalid = compare_property_records(None, rec1)
         self.assertFalse(res_invalid["is_match"])
 
+        # Format comparison table test (visual side-by-side inspection)
+        from src.data_cleaning import format_comparison_table
+        table_output = format_comparison_table(rec1, rec_diff)
+        self.assertIn("SIDE-BY-SIDE PROPERTY RECORD COMPARISON", table_output)
+        self.assertIn("Property ID", table_output)
+        self.assertIn("MATCH (Exact)", table_output)
+        self.assertIn("DIFF", table_output)
+        self.assertTrue(res_ident["are_identical"])
+        self.assertFalse(res_diff["are_identical"])
+        self.assertEqual(res_ident["price_difference"]["amount"], 0.0)
+
     # Criterion 2: The system should identify matching property information.
     def test_user_story_2_criterion_2_identify_matching_property_info(self):
         from src.data_cleaning import identify_matching_property_info

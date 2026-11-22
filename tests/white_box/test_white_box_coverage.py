@@ -360,6 +360,37 @@ class TestWhiteBoxBranchCoverage(unittest.TestCase):
         deduped = deduplicate_dataset([r1, r2], strategy="keep_first")
         self.assertEqual(len(deduped), 1)
 
+    def test_white_box_compare_property_records_branches(self):
+        from src.data_cleaning import compare_property_records, format_comparison_table
+        # None and non-dict branches
+        self.assertFalse(compare_property_records(None, {})["is_match"])
+        self.assertFalse(compare_property_records({}, None)["is_match"])
+
+        # Identical records branch
+        r1 = {
+            "property_id": "P_COMP_1",
+            "property_type": "flat",
+            "location": "A Very Long Location Description Exceeding Twenty Six Characters For Truncation",
+            "price": "£250,000",
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://example.com/very/long/listing/url/path/exceeding/twenty/six/characters"
+        }
+        res_ident = compare_property_records(r1, r1.copy())
+        self.assertTrue(res_ident["are_identical"])
+        self.assertTrue(res_ident["is_match"])
+        self.assertEqual(res_ident["similarity_score"], 1.0)
+
+        # Price unparseable branch
+        r_bad_price = {**r1, "property_id": "P_COMP_2", "price": "unparseable_price_string"}
+        res_bad_p = compare_property_records(r1, r_bad_price)
+        self.assertEqual(res_bad_p["price_difference"]["amount"], 0.0)
+
+        # Truncation and table formatting branch
+        tbl = format_comparison_table(r1, r_bad_price)
+        self.assertIn("SIDE-BY-SIDE PROPERTY RECORD COMPARISON", tbl)
+        self.assertIn("...", tbl) # Truncation executed
+
 
 if __name__ == "__main__":
     unittest.main()

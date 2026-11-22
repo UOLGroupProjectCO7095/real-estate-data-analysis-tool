@@ -221,6 +221,59 @@ class TestCategoryPartitionValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             handle_duplicates(batch, strategy="invalid_strategy_xyz")
 
+    # =========================================================================
+    # Category 6: Property Record Comparison Partitions (Criterion 1)
+    # =========================================================================
+    def test_category_property_comparison_partitions(self):
+        from src.data_cleaning import compare_property_records
+        base = self.valid_baseline.copy()
+
+        # Partition 6.1: Identical Records
+        res_ident = compare_property_records(base, base.copy())
+        self.assertTrue(res_ident["are_identical"])
+        self.assertTrue(res_ident["is_match"])
+        self.assertEqual(res_ident["similarity_score"], 1.0)
+
+        # Partition 6.2: Same ID, Mutated Location
+        mut_loc = base.copy()
+        mut_loc["location"] = "Manchester North"
+        res_same_id = compare_property_records(base, mut_loc)
+        self.assertTrue(res_same_id["is_match"])
+        self.assertFalse(res_same_id["are_identical"])
+        self.assertIn("location", res_same_id["differing_fields"])
+
+        # Partition 6.3: Canonical URL Match
+        url_match = {
+            "property_id": "P_OTHER_URL",
+            "property_type": "flat",
+            "location": "Other Area",
+            "price": 999999,
+            "bedrooms": 1,
+            "bathrooms": 1,
+            "listing_url": base["listing_url"] + "/?utm_source=ad"
+        }
+        res_url = compare_property_records(base, url_match)
+        self.assertTrue(res_url["is_match"])
+        self.assertTrue(res_url["url_canonical_match"])
+
+        # Partition 6.4: Completely Disjoint Records
+        disjoint = {
+            "property_id": "P_DISJOINT",
+            "property_type": "detached",
+            "location": "Edinburgh South",
+            "price": 850000,
+            "bedrooms": 5,
+            "bathrooms": 4,
+            "listing_url": "https://other.co.uk/unique"
+        }
+        res_disjoint = compare_property_records(base, disjoint)
+        self.assertFalse(res_disjoint["is_match"])
+        self.assertEqual(res_disjoint["similarity_score"], 0.0)
+
+        # Partition 6.5: Invalid Inputs (None, non-dict)
+        self.assertFalse(compare_property_records(None, base)["is_match"])
+        self.assertFalse(compare_property_records(base, "not_dict")["is_match"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1386,25 +1386,32 @@ def compare_property_records(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict
     Performs an in-depth, field-by-field and holistic comparison between two property records:
     - Analyzes identical vs differing fields
     - Checks canonical URL equality
-    - Computes similarity score and determines overall duplicate status.
+    - Computes price difference amount and percentage
+    - Computes composite similarity score and determines overall duplicate status.
 
     Returns:
         Dict[str, Any]:
         - 'is_match': bool indicating if the pair is considered a duplicate
+        - 'are_identical': bool indicating if all core fields match exactly
         - 'match_reason': explanation string if matched
         - 'identical_fields': list of fields where values exactly match
         - 'differing_fields': list of fields where values differ
         - 'url_canonical_match': bool
+        - 'field_comparisons': dict mapping each field to {value_a, value_b, is_match}
+        - 'price_difference': dict with amount, percentage, and tolerance flag
         - 'similarity_score': float in range [0.0, 1.0]
         - 'comparison_summary': text summary of comparison findings
     """
     if not isinstance(rec1, dict) or not isinstance(rec2, dict):
         return {
             "is_match": False,
+            "are_identical": False,
             "match_reason": "",
             "identical_fields": [],
             "differing_fields": [],
             "url_canonical_match": False,
+            "field_comparisons": {},
+            "price_difference": {"amount": 0.0, "percentage": 0.0, "within_tolerance": False},
             "similarity_score": 0.0,
             "comparison_summary": "One or both records are not valid dictionaries."
         }
@@ -1421,22 +1428,56 @@ def compare_property_records(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict
 
     identical_fields: List[str] = []
     differing_fields: List[str] = []
+    field_comparisons: Dict[str, Any] = {}
 
     for f in fields_to_compare:
-        v1 = str(rec1.get(f, "")).strip().lower()
-        v2 = str(rec2.get(f, "")).strip().lower()
-        if v1 and v2 and v1 == v2:
+        raw1 = rec1.get(f)
+        raw2 = rec2.get(f)
+        v1 = str(raw1 if raw1 is not None else "").strip().lower()
+        v2 = str(raw2 if raw2 is not None else "").strip().lower()
+
+        is_field_match = (v1 != "" and v2 != "" and v1 == v2)
+        if is_field_match:
             identical_fields.append(f)
         else:
             differing_fields.append(f)
 
+        field_comparisons[f] = {
+            "value_a": raw1,
+            "value_b": raw2,
+            "is_match": is_field_match
+        }
+
     # Check canonical URL equality
     url_canonical_match = False
     if rec1.get("listing_url") and rec2.get("listing_url"):
-        url_canonical_match = (canonicalize_url(rec1["listing_url"]) == canonicalize_url(rec2["listing_url"]))
+        canon1 = canonicalize_url(rec1["listing_url"])
+        canon2 = canonicalize_url(rec2["listing_url"])
+        url_canonical_match = bool(canon1 and canon2 and canon1 == canon2)
+
+    # Check price difference
+    p_diff_amt = 0.0
+    p_diff_pct = 0.0
+    p_within_tol = False
+    try:
+        p1 = float(str(rec1.get("price", "0")).replace(",", "").replace("$", "").replace("£", ""))
+        p2 = float(str(rec2.get("price", "0")).replace(",", "").replace("$", "").replace("£", ""))
+        if p1 > 0 and p2 > 0:
+            p_diff_amt = round(abs(p1 - p2), 2)
+            p_diff_pct = round((p_diff_amt / max(p1, p2)) * 100.0, 2)
+            p_within_tol = (p_diff_pct <= 5.0)
+    except (ValueError, TypeError):
+        pass
+
+    price_diff_info = {
+        "amount": p_diff_amt,
+        "percentage": p_diff_pct,
+        "within_tolerance": p_within_tol
+    }
 
     # Check duplicate match using the multi-tier engine
     is_dup, reason = check_duplicate_pair(rec1, rec2)
+    are_identical = (len(identical_fields) == len(fields_to_compare))
 
     total = len(fields_to_compare)
     raw_similarity = len(identical_fields) / total if total > 0 else 0.0
@@ -1447,13 +1488,74 @@ def compare_property_records(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict
 
     return {
         "is_match": is_dup,
+        "are_identical": are_identical,
         "match_reason": reason,
         "identical_fields": identical_fields,
         "differing_fields": differing_fields,
         "url_canonical_match": url_canonical_match,
+        "field_comparisons": field_comparisons,
+        "price_difference": price_diff_info,
         "similarity_score": similarity_score,
         "comparison_summary": reason if is_dup else f"Records are distinct (differ in: {', '.join(differing_fields)})"
     }
+
+
+def format_comparison_table(
+    rec1: Dict[str, Any],
+    rec2: Dict[str, Any],
+    comparison_result: Optional[Dict[str, Any]] = None
+) -> str:
+    """
+    Criterion 1 Helper: Formats an in-depth side-by-side comparison table
+    between two property records for visual inspection.
+    """
+    if comparison_result is None:
+        comparison_result = compare_property_records(rec1, rec2)
+
+    fields = [
+        ("Property ID", "property_id"),
+        ("Property Type", "property_type"),
+        ("Location", "location"),
+        ("Price", "price"),
+        ("Bedrooms", "bedrooms"),
+        ("Bathrooms", "bathrooms"),
+        ("Listing URL", "listing_url"),
+    ]
+
+    lines = [
+        "=" * 75,
+        "                 SIDE-BY-SIDE PROPERTY RECORD COMPARISON                 ",
+        "=" * 75,
+        f"{'Field':<15} | {'Record A':<26} | {'Record B':<26} | {'Status'}",
+        "-" * 75,
+    ]
+
+    for label, key in fields:
+        val1 = str(rec1.get(key, "N/A")) if rec1 else "N/A"
+        val2 = str(rec2.get(key, "N/A")) if rec2 else "N/A"
+        trunc1 = (val1[:23] + "...") if len(val1) > 26 else val1
+        trunc2 = (val2[:23] + "...") if len(val2) > 26 else val2
+
+        if key in comparison_result.get("identical_fields", []):
+            status = "MATCH (Exact)"
+        elif key == "listing_url" and comparison_result.get("url_canonical_match"):
+            status = "MATCH (Canonical URL)"
+        elif key == "location" and val1 and val2 and any(w in val2.lower() for w in val1.lower().split() if len(w) > 3):
+            status = "MATCH (Area Match)"
+        else:
+            status = "DIFF"
+
+        lines.append(f"{label:<15} | {trunc1:<26} | {trunc2:<26} | {status}")
+
+    lines.append("-" * 75)
+    score_pct = round(comparison_result.get("similarity_score", 0.0) * 100.0, 1)
+    match_str = "DUPLICATE MATCH" if comparison_result.get("is_match") else "DISTINCT RECORDS"
+    lines.append(f"Overall Classification : {match_str}")
+    lines.append(f"Similarity Score       : {score_pct}%")
+    lines.append(f"Comparison Summary     : {comparison_result.get('comparison_summary', '')}")
+    lines.append("=" * 75)
+
+    return "\n".join(lines)
 
 
 def identify_matching_property_info(

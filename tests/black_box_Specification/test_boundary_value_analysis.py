@@ -181,6 +181,58 @@ class TestBoundaryValueAnalysis(unittest.TestCase):
         self.assertEqual(rep_n["unique_count"], 1)
         self.assertEqual(rep_n["duplicate_count"], 4)
 
+    # --- Property Record Comparison Boundaries (BVA) ---
+    def test_property_record_comparison_boundaries_bva(self):
+        from src.data_cleaning import compare_property_records
+        base = {
+            "property_id": "P_BASE",
+            "property_type": "flat",
+            "location": "Leicester",
+            "price": 100000.0,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": "https://example.com/p_base"
+        }
+
+        # Boundary 1: Upper limit similarity (100% / 1.0) - exact match across all 7 fields
+        comp_max = compare_property_records(base, base.copy())
+        self.assertEqual(comp_max["similarity_score"], 1.0)
+        self.assertTrue(comp_max["are_identical"])
+        self.assertEqual(len(comp_max["identical_fields"]), 7)
+        self.assertEqual(len(comp_max["differing_fields"]), 0)
+
+        # Boundary 2: Lower limit similarity (0.0) - 0 matching fields
+        distinct = {
+            "property_id": "X_DIFF",
+            "property_type": "detached",
+            "location": "Cardiff",
+            "price": 999999.0,
+            "bedrooms": 8,
+            "bathrooms": 5,
+            "listing_url": "https://other.org/diff"
+        }
+        comp_min = compare_property_records(base, distinct)
+        self.assertEqual(comp_min["similarity_score"], 0.0)
+        self.assertFalse(comp_min["are_identical"])
+        self.assertEqual(len(comp_min["identical_fields"]), 0)
+        self.assertEqual(len(comp_min["differing_fields"]), 7)
+
+        # Boundary 3: Price comparison percentage tolerance boundaries:
+        # At 0% diff: within tolerance
+        comp_p0 = compare_property_records(base, {**base, "property_id": "P_NEW", "price": 100000.0})
+        self.assertTrue(comp_p0["price_difference"]["within_tolerance"])
+        self.assertEqual(comp_p0["price_difference"]["percentage"], 0.0)
+
+        # At exactly 5.0% diff: boundary value (within tolerance)
+        comp_p5 = compare_property_records(base, {**base, "property_id": "P_NEW2", "price": 95000.0})
+        self.assertTrue(comp_p5["price_difference"]["within_tolerance"])
+        self.assertEqual(comp_p5["price_difference"]["percentage"], 5.0)
+
+        # At 5.1% diff: boundary value (exceeds tolerance)
+        comp_p51 = compare_property_records(base, {**base, "property_id": "P_NEW3", "price": 94900.0})
+        self.assertFalse(comp_p51["price_difference"]["within_tolerance"])
+        self.assertGreater(comp_p51["price_difference"]["percentage"], 5.0)
+
 
 if __name__ == "__main__":
     unittest.main()

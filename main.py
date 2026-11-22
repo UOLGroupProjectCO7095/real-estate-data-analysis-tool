@@ -260,6 +260,49 @@ def handle_detect_and_handle_duplicates():
     print("=" * 65)
 
 
+def handle_compare_two_properties():
+    """
+    Acceptance Criterion 1: The system should compare property records.
+    Allows user to select two properties from storage to perform a field-by-field
+    side-by-side comparison and view the similarity metrics.
+    """
+    print("\n" + "=" * 65)
+    print("      SIDE-BY-SIDE PROPERTY RECORD COMPARISON TOOL              ")
+    print("=" * 65)
+    from src.data_collection import fetch_raw_collected_data
+    from src.data_cleaning import compare_property_records, format_comparison_table
+
+    records = fetch_raw_collected_data()
+    if len(records) < 2:
+        print("[!] Not enough stored records to compare. Need at least 2 records.")
+        return
+
+    print(f"Loaded {len(records)} records from {DATA_FILE_PATH}.\n")
+    print("Available Property Records (First 10 shown):")
+    for idx, r in enumerate(records[:10]):
+        print(f"  [{idx}] ID: {r.get('property_id'):<16} | {r.get('property_type'):<10} | {r.get('location'):<20} | £{r.get('price')}")
+
+    idx_a_str = input(f"\nSelect index for Record A [default: 0]: ").strip()
+    idx_b_str = input(f"Select index for Record B [default: 1]: ").strip()
+
+    try:
+        idx_a = int(idx_a_str) if idx_a_str else 0
+        idx_b = int(idx_b_str) if idx_b_str else 1
+        rec_a = records[idx_a]
+        rec_b = records[idx_b]
+    except (ValueError, IndexError):
+        print("[!] Invalid index selected. Comparing first two records by default.")
+        rec_a = records[0]
+        rec_b = records[1]
+
+    # Perform comparison
+    print("\n[*] Comparing property records...")
+    res = compare_property_records(rec_a, rec_b)
+    table = format_comparison_table(rec_a, rec_b, res)
+    print("\n" + table)
+    print("=" * 65)
+
+
 def handle_run_all_tests():
     """Runs all test suites and displays software quality metrics."""
     import run_tests_with_coverage
@@ -275,11 +318,12 @@ def main():
         print("2. Merge & Process Member 1 & Member 4 Sources (Open Simulation)")
         print("3. Automated Property URL Ingestion & Real Data Validation")
         print("4. Identify & Handle Duplicate Property Records (Data Deduplication)")
-        print("5. Run Test Suites & Check Coverage (CO7095 QA Standard)")
-        print("6. Exit")
+        print("5. Compare Two Property Records (Side-by-Side Analysis)")
+        print("6. Run Test Suites & Check Coverage (CO7095 QA Standard)")
+        print("7. Exit")
         print("=" * 65)
 
-        choice = input("Select an option (1-6): ").strip()
+        choice = input("Select an option (1-7): ").strip()
         if choice == "1":
             handle_process_collected_data()
         elif choice == "2":
@@ -289,12 +333,14 @@ def main():
         elif choice == "4":
             handle_detect_and_handle_duplicates()
         elif choice == "5":
-            handle_run_all_tests()
+            handle_compare_two_properties()
         elif choice == "6":
+            handle_run_all_tests()
+        elif choice == "7":
             print("\nExiting application. Goodbye!")
             break
         else:
-            print("[!] Invalid option. Please enter 1, 2, 3, 4, 5, or 6.")
+            print("[!] Invalid option. Please enter 1, 2, 3, 4, 5, 6, or 7.")
 
 
 if __name__ == "__main__":
