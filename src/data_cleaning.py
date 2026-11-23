@@ -2921,23 +2921,158 @@ def load_student_accommodations(json_path: Optional[str] = None) -> List[Dict[st
 
 
 # ==============================================================================
-# Acceptance Feature: Identify Missing Property Information (Option 7)
+# USER STORY 3: Missing Property Information Management (Option 7)
+# Acceptance Criteria:
+# 1. The system should check for missing property fields.
+# 2. The system should identify incomplete property records.
+# 3. The system should display missing information.
+# 4. The system should generate a missing-data report.
 # ==============================================================================
+
+def check_missing_property_fields(
+    record: Any,
+    fields_to_check: Optional[List[str]] = None
+) -> Tuple[bool, List[str]]:
+    """
+    Acceptance Criterion 1: The system should check for missing property fields.
+
+    Checks an individual property record for missing, None, empty string,
+    whitespace-only, empty collection, or placeholder values ('nan', 'null', 'none').
+
+    Returns:
+        Tuple[bool, List[str]]:
+        - has_missing: bool (True if any field is missing/empty, False otherwise)
+        - missing_fields: List[str] containing the names of missing fields
+    """
+    if fields_to_check is None:
+        fields_to_check = list(REQUIRED_PROPERTY_FIELDS)
+
+    if not isinstance(record, dict):
+        return True, list(fields_to_check)
+
+    missing: List[str] = []
+    for field in fields_to_check:
+        val = record.get(field)
+        is_missing = False
+        if val is None:
+            is_missing = True
+        elif isinstance(val, str):
+            stripped = val.strip()
+            if not stripped or stripped.lower() in ["nan", "null", "none"]:
+                is_missing = True
+        elif isinstance(val, (list, dict, set, tuple)) and len(val) == 0:
+            is_missing = True
+
+        if is_missing:
+            missing.append(field)
+
+    return len(missing) > 0, missing
+
+
+def identify_incomplete_property_records(
+    records: Any,
+    fields_to_check: Optional[List[str]] = None
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Acceptance Criterion 2: The system should identify incomplete property records.
+
+    Scans a collection of records and segregates them into:
+      1. complete_records: records where all checked fields are present and valid
+      2. incomplete_records: records missing one or more required fields,
+         enriched with 'missing_fields' and 'missing_count'.
+
+    Returns:
+        Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        (complete_records, incomplete_records)
+    """
+    if fields_to_check is None:
+        fields_to_check = list(REQUIRED_PROPERTY_FIELDS)
+
+    if not isinstance(records, list):
+        return [], []
+
+    complete_records: List[Dict[str, Any]] = []
+    incomplete_records: List[Dict[str, Any]] = []
+
+    for idx, rec in enumerate(records):
+        if not isinstance(rec, dict):
+            incomplete_records.append({
+                "index": idx,
+                "property_id": f"NON_DICT_ROW_{idx}",
+                "record": rec,
+                "missing_fields": list(fields_to_check),
+                "missing_count": len(fields_to_check),
+                "is_non_dict": True
+            })
+            continue
+
+        has_missing, missing_fields = check_missing_property_fields(rec, fields_to_check)
+        if has_missing:
+            prop_id = rec.get("property_id") or f"RECORD_INDEX_{idx}"
+            incomplete_records.append({
+                "index": idx,
+                "property_id": str(prop_id),
+                "record": rec,
+                "missing_fields": missing_fields,
+                "missing_count": len(missing_fields),
+                "is_non_dict": False
+            })
+        else:
+            complete_records.append(rec)
+
+    return complete_records, incomplete_records
+
+
+def display_missing_information(
+    records: Any,
+    fields_to_check: Optional[List[str]] = None
+) -> str:
+    """
+    Acceptance Criterion 3: The system should display missing information.
+
+    Constructs a formatted tabular matrix showing which records have missing fields,
+    listing row index, property ID, completeness status, and exact missing attributes.
+    """
+    if fields_to_check is None:
+        fields_to_check = list(REQUIRED_PROPERTY_FIELDS)
+
+    complete_recs, incomplete_recs = identify_incomplete_property_records(records, fields_to_check)
+    total = len(records) if isinstance(records, list) else 0
+
+    lines = [
+        "=" * 80,
+        "                    MISSING PROPERTY INFORMATION MATRIX                         ",
+        "=" * 80,
+        f"{'Row':<6} | {'Property ID':<18} | {'Status':<14} | {'Missing Fields'}",
+        "-" * 80,
+    ]
+
+    if total == 0:
+        lines.append("No property records to display.")
+    elif len(incomplete_recs) == 0:
+        lines.append(f"  [✓] All {total} property records are complete! Zero missing fields detected.")
+    else:
+        for item in incomplete_recs:
+            idx = item["index"]
+            pid = item["property_id"]
+            missing_str = ", ".join(item["missing_fields"])
+            lines.append(f"{idx:<6} | {pid:<18} | {'INCOMPLETE':<14} | {missing_str}")
+
+        lines.append("-" * 80)
+        lines.append(f"Total Evaluated: {total} | Complete: {len(complete_recs)} | Incomplete: {len(incomplete_recs)}")
+
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
 
 def identify_missing_property_info(
     records: Any,
     fields_to_check: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
-    Identifies missing and empty fields across a collection of property records.
-    Checks for:
-      - Missing keys
-      - None values
-      - Empty or whitespace-only strings
-      - Empty collections or string representations ('nan', 'null', 'none')
-
-    Categorizes records into complete and incomplete, tallies field-level missingness,
-    and returns a structured data quality audit.
+    Audits missing and empty fields across a collection of property records.
+    Returns structured analysis containing complete/incomplete records,
+    field-level missing counts, percentages, and completeness score.
     """
     if fields_to_check is None:
         fields_to_check = list(REQUIRED_PROPERTY_FIELDS)
@@ -2957,55 +3092,13 @@ def identify_missing_property_info(
         }
 
     total_records = len(records)
-    complete_records: List[Dict[str, Any]] = []
-    incomplete_records: List[Dict[str, Any]] = []
+    complete_records, incomplete_records = identify_incomplete_property_records(records, fields_to_check)
+
     field_missing_counts: Dict[str, int] = {f: 0 for f in fields_to_check}
-
-    for idx, rec in enumerate(records):
-        if not isinstance(rec, dict):
-            # Non-dict record is treated as missing all checked fields
-            for f in fields_to_check:
+    for item in incomplete_records:
+        for f in item["missing_fields"]:
+            if f in field_missing_counts:
                 field_missing_counts[f] += 1
-            incomplete_records.append({
-                "index": idx,
-                "property_id": f"NON_DICT_ROW_{idx}",
-                "record": rec,
-                "missing_fields": list(fields_to_check),
-                "missing_count": len(fields_to_check),
-                "is_non_dict": True
-            })
-            continue
-
-        prop_id = rec.get("property_id") or f"RECORD_INDEX_{idx}"
-        missing_for_rec: List[str] = []
-
-        for field in fields_to_check:
-            val = rec.get(field)
-            is_missing = False
-            if val is None:
-                is_missing = True
-            elif isinstance(val, str):
-                stripped = val.strip()
-                if not stripped or stripped.lower() in ["nan", "null", "none"]:
-                    is_missing = True
-            elif isinstance(val, (list, dict, set, tuple)) and len(val) == 0:
-                is_missing = True
-
-            if is_missing:
-                missing_for_rec.append(field)
-                field_missing_counts[field] += 1
-
-        if missing_for_rec:
-            incomplete_records.append({
-                "index": idx,
-                "property_id": str(prop_id),
-                "record": rec,
-                "missing_fields": missing_for_rec,
-                "missing_count": len(missing_for_rec),
-                "is_non_dict": False
-            })
-        else:
-            complete_records.append(rec)
 
     complete_count = len(complete_records)
     incomplete_count = len(incomplete_records)

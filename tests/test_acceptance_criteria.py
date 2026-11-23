@@ -914,10 +914,114 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertIn("DMU", summit["student_preferred_location"])
 
     # -------------------------------------------------------------------------
-    # Acceptance Tests: Option 7 - Identify Missing Property Information
+    # USER STORY 3: Missing Property Information Management (Option 7)
+    # Acceptance Criteria:
+    # 1. The system should check for missing property fields.
+    # 2. The system should identify incomplete property records.
+    # 3. The system should display missing information.
+    # 4. The system should generate a missing-data report.
     # -------------------------------------------------------------------------
+    def test_user_story_3_criterion_1_check_missing_property_fields(self):
+        from src.data_cleaning import check_missing_property_fields
+
+        # 1. Complete valid record has no missing fields
+        has_missing, missing = check_missing_property_fields(self.valid_record)
+        self.assertFalse(has_missing)
+        self.assertEqual(len(missing), 0)
+
+        # 2. Record with None, empty string, whitespace, and 'nan'
+        corrupted = {
+            "property_id": "PROP_MISSING_01",
+            "property_type": "   ",     # whitespace
+            "location": None,           # None
+            "price": "nan",             # placeholder 'nan'
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "listing_url": ""           # empty string
+        }
+        has_missing_c, missing_c = check_missing_property_fields(corrupted)
+        self.assertTrue(has_missing_c)
+        self.assertIn("property_type", missing_c)
+        self.assertIn("location", missing_c)
+        self.assertIn("price", missing_c)
+        self.assertIn("listing_url", missing_c)
+        self.assertNotIn("bedrooms", missing_c)
+        self.assertNotIn("bathrooms", missing_c)
+
+        # 3. Non-dict input
+        has_missing_bad, missing_bad = check_missing_property_fields(None)
+        self.assertTrue(has_missing_bad)
+        self.assertGreater(len(missing_bad), 0)
+
+    def test_user_story_3_criterion_2_identify_incomplete_property_records(self):
+        from src.data_cleaning import identify_incomplete_property_records
+
+        rec_complete = self.valid_record.copy()
+        rec_incomplete_1 = {"property_id": "P_INC_1", "property_type": "flat", "price": None}
+        rec_incomplete_2 = {"property_id": "P_INC_2", "property_type": "", "location": "London"}
+
+        dataset = [rec_complete, rec_incomplete_1, rec_incomplete_2, "not_a_dict"]
+        complete, incomplete = identify_incomplete_property_records(dataset)
+
+        self.assertEqual(len(complete), 1)
+        self.assertEqual(len(incomplete), 3)
+        self.assertEqual(complete[0]["property_id"], self.valid_record["property_id"])
+        self.assertEqual(incomplete[0]["property_id"], "P_INC_1")
+        self.assertIn("price", incomplete[0]["missing_fields"])
+
+        # Empty / non-list inputs
+        c_empty, inc_empty = identify_incomplete_property_records([])
+        self.assertEqual(len(c_empty), 0)
+        self.assertEqual(len(inc_empty), 0)
+
+        c_none, inc_none = identify_incomplete_property_records(None)
+        self.assertEqual(len(c_none), 0)
+        self.assertEqual(len(inc_none), 0)
+
+    def test_user_story_3_criterion_3_display_missing_information(self):
+        from src.data_cleaning import display_missing_information
+
+        recs = [
+            {"property_id": "P_DISP_1", "property_type": "flat", "location": "LE1", "price": 120, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://a.com"},
+            {"property_id": "P_DISP_2", "property_type": "", "location": None, "price": 150, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://b.com"}
+        ]
+
+        matrix_text = display_missing_information(recs)
+        self.assertIn("MISSING PROPERTY INFORMATION MATRIX", matrix_text)
+        self.assertIn("P_DISP_2", matrix_text)
+        self.assertIn("INCOMPLETE", matrix_text)
+        self.assertIn("property_type", matrix_text)
+        self.assertIn("location", matrix_text)
+
+        # Complete dataset matrix
+        clean_matrix = display_missing_information([recs[0]])
+        self.assertIn("All 1 property records are complete", clean_matrix)
+
+        # Empty dataset
+        empty_matrix = display_missing_information([])
+        self.assertIn("No property records to display", empty_matrix)
+
+    def test_user_story_3_criterion_4_generate_missing_data_report(self):
+        from src.data_cleaning import generate_missing_data_report
+
+        recs = [
+            {"property_id": "P1", "property_type": "house", "location": "Leeds", "price": 1000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://a.com"},
+            {"property_id": "P2", "property_type": "", "location": "Leeds", "price": None, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://b.com"}
+        ]
+        report = generate_missing_data_report(recs)
+        self.assertIn("MISSING PROPERTY INFORMATION & COMPLETENESS AUDIT REPORT", report)
+        self.assertIn("Total Records Analyzed : 2", report)
+        self.assertIn("Complete Records       : 1 (50.0%)", report)
+        self.assertIn("Incomplete Records     : 1 (50.0%)", report)
+        self.assertIn("P2", report)
+        self.assertIn("RECOMMENDATIONS", report)
+
+        # 100% complete dataset
+        report_clean = generate_missing_data_report([recs[0]])
+        self.assertIn("EXCELLENT DATA QUALITY", report_clean)
+
     def test_identify_missing_property_info(self):
-        from src.data_cleaning import identify_missing_property_info, generate_missing_data_report
+        from src.data_cleaning import identify_missing_property_info
 
         complete_rec = {
             "property_id": "PROP_COMPLETE_1",
@@ -968,22 +1072,6 @@ class TestAcceptanceCriteria(unittest.TestCase):
 
         none_res = identify_missing_property_info(None)
         self.assertEqual(none_res["total_records"], 0)
-
-    def test_generate_missing_data_report(self):
-        from src.data_cleaning import generate_missing_data_report
-
-        recs = [
-            {"property_id": "P1", "property_type": "house", "location": "Leeds", "price": 1000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://a.com"},
-            {"property_id": "P2", "property_type": "", "location": "Leeds", "price": None, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://b.com"}
-        ]
-        report = generate_missing_data_report(recs)
-        self.assertIn("MISSING PROPERTY INFORMATION & COMPLETENESS AUDIT REPORT", report)
-        self.assertIn("P2", report)
-        self.assertIn("RECOMMENDATIONS", report)
-
-        # 100% complete dataset
-        report_clean = generate_missing_data_report([recs[0]])
-        self.assertIn("EXCELLENT DATA QUALITY", report_clean)
 
     # -------------------------------------------------------------------------
     # Acceptance Tests: Option 10 - View Data Processing Summary & Reports

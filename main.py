@@ -34,6 +34,9 @@ from src.data_cleaning import (
     handle_duplicates,
     generate_duplicate_report,
     identify_missing_property_info,
+    check_missing_property_fields,
+    identify_incomplete_property_records,
+    display_missing_information,
     generate_missing_data_report,
     generate_data_processing_summary,
     format_executive_summary_report,
@@ -768,16 +771,8 @@ def handle_identify_missing_property_information():
 
         elif sub_choice == "3":
             print("\n[*] Displaying missing information matrix...")
-            analysis = identify_missing_property_info(records)
-            incompletes = analysis["incomplete_records"]
-            if not incompletes:
-                print("  [✓] Zero missing values detected across all attributes.")
-            else:
-                hdr = f"{'Row':<6} | {'Property ID':<18} | {'Missing Fields'}"
-                print(hdr)
-                print("-" * len(hdr) + "-" * 20)
-                for item in incompletes:
-                    print(f"{item['index']:<6} | {item['property_id']:<18} | {', '.join(item['missing_fields'])}")
+            matrix_text = display_missing_information(records)
+            print("\n" + matrix_text)
 
         elif sub_choice == "4":
             print("\n[*] Generating Missing-Data Audit Report...")
