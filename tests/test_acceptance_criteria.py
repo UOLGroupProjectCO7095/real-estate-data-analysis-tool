@@ -859,6 +859,60 @@ class TestAcceptanceCriteria(unittest.TestCase):
                 self.assertIn("studio", content)
                 self.assertIn("Bristol BS1 5RR", content)
 
+    # -------------------------------------------------------------------------
+    # USER STORY: AmberStudent Preferred Locations Integration (https://amberstudent.com/)
+    # -------------------------------------------------------------------------
+    def test_amberstudent_preferred_locations_directory(self):
+        from src.data_cleaning import (
+            AMBERSTUDENT_PREFERRED_LOCATIONS,
+            get_amberstudent_preferred_locations,
+            match_amberstudent_location,
+            format_amberstudent_locations_catalog
+        )
+
+        # 1. Catalog integrity
+        self.assertGreaterEqual(len(AMBERSTUDENT_PREFERRED_LOCATIONS), 8)
+        leic_locs = get_amberstudent_preferred_locations("Leicester")
+        self.assertGreaterEqual(len(leic_locs), 5)
+        self.assertTrue(any("LE1" in loc["postcode_area"] for loc in leic_locs))
+
+        # 2. Location matching by postcode, area name, and accommodation name
+        m_le1 = match_amberstudent_location("Dover Street, Leicester LE1")
+        self.assertIsNotNone(m_le1)
+        self.assertEqual(m_le1["city"], "Leicester")
+
+        m_clarendon = match_amberstudent_location("Leafy shared house in Clarendon Park")
+        self.assertIsNotNone(m_clarendon)
+        self.assertIn("Clarendon Park", m_clarendon["name"])
+
+        m_london = match_amberstudent_location("Apartment in Bloomsbury near UCL")
+        self.assertIsNotNone(m_london)
+        self.assertEqual(m_london["city"], "London")
+
+        # 3. Formatted directory output
+        cat_text = format_amberstudent_locations_catalog("Leicester")
+        self.assertIn("AMBERSTUDENT PREFERRED STUDENT LOCATIONS DIRECTORY", cat_text)
+        self.assertIn("https://amberstudent.com/", cat_text)
+        self.assertIn("Leicester City Centre", cat_text)
+
+    def test_amberstudent_url_extraction_pennine_and_summit(self):
+        from src.data_cleaning import extract_details_from_url
+
+        # Test extraction for Pennine House Leicester (row 22 in properties.csv)
+        pennine = extract_details_from_url("https://amberstudent.com/places/pennine-house-leicester-2005064014733")
+        self.assertEqual(pennine["property_id"], "PROP_2005064014733")
+        self.assertEqual(pennine["property_name"], "Pennine House Leicester")
+        self.assertIn("LE1", pennine["location"])
+        self.assertIn("student_preferred_location", pennine)
+        self.assertIn("Tower St", pennine["student_preferred_location"])
+
+        # Test extraction for The Summit Leicester
+        summit = extract_details_from_url("https://amberstudent.com/places/the-summit-leicester-1809051412099")
+        self.assertEqual(summit["property_name"], "The Summit Leicester")
+        self.assertIn("Eastern Blvd", summit["location"])
+        self.assertEqual(summit["property_type"], "studio")
+        self.assertIn("DMU", summit["student_preferred_location"])
+
 
 if __name__ == "__main__":
     unittest.main()

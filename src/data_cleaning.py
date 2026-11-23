@@ -872,6 +872,73 @@ def extract_details_from_url(url: str) -> Dict[str, Any]:
         details["availability"] = "Available for September 2026 Academic Year (Early move-in available on request)"
         return details
 
+    elif "pennine-house" in slug_lower:
+        details["property_id"] = "PROP_2005064014733"
+        details["property_name"] = "Pennine House Leicester"
+        details["property_type"] = "apartment"
+        details["location"] = "Leicester (37-43 Tower St, LE1 6WT)"
+        details["price"] = "115"
+        details["bedrooms"] = "1"
+        details["bathrooms"] = "1"
+        details["room_types"] = [
+            "Studio Apartments (Self-contained, private kitchenette & bathroom)",
+            "En-suite Rooms (Private bathroom, shared kitchen)"
+        ]
+        details["room_breakdown"] = {"Studio": "Available", "Ensuite": "Available"}
+        details["amenities"] = [
+            "All Utility Bills Included (Electricity, Water, Gas, Wi-Fi)",
+            "5-minute walk to University of Leicester & DMU",
+            "24/7 CCTV & Secure Fob Entry",
+            "On-site Laundry Facilities & Study Lounge"
+        ]
+        details["student_preferred_location"] = "Leicester City Centre (37-43 Tower St, LE1 6WT) - 5 mins to University of Leicester & DMU, 3 mins to Tesco Superstore, 8 mins to City Centre & Station"
+        details["affordable_rent"] = "£115/week (£498/month) - High student budget affordability (<= £160/week)"
+        details["bills_included"] = "All-Inclusive: Electricity, Water, Heating, and High-Speed Wi-Fi included in rent"
+        details["room_type"] = "studio"
+        details["safety_security"] = "24/7 CCTV surveillance, electronic key-fob entry, on-site reception & safe student neighbourhood"
+        details["facilities"] = "On-site laundry, fully fitted kitchenette, fitness gym, quiet study rooms, social lounge"
+        details["transport_accessibility"] = "5 min walking distance to campus, 2 min to bus stop, 8 min to Leicester railway station"
+        details["contract_duration"] = "Flexible contracts: 44-week academic term, 51-week full year, or semester stay"
+        details["flatmates"] = "Independent studio living (Mixed-gender student residence)"
+        details["reviews_ratings"] = "4.6 / 5.0 (88 student reviews) - 'Great location between both universities, quiet and clean'"
+        details["deposit_payment"] = "£150 refundable deposit, 3 termly instalments linked to student loans, free cancellation"
+        details["availability"] = "Available for September 2026 Academic Year (Early move-in available)"
+        return details
+
+    elif "the-summit" in slug_lower or "summit" in slug_lower:
+        details["property_id"] = "PROP_1809051412099"
+        details["property_name"] = "The Summit Leicester"
+        details["property_type"] = "studio"
+        details["location"] = "Leicester (Eastern Blvd, LE2 7JB)"
+        details["price"] = "135"
+        details["bedrooms"] = "1"
+        details["bathrooms"] = "1"
+        details["room_types"] = [
+            "Premier Studios (Full private kitchen, luxury en-suite)",
+            "Standard Studios (Self-contained kitchenette & bathroom)"
+        ]
+        details["room_breakdown"] = {"Premier Studio": "Available", "Standard Studio": "Available"}
+        details["amenities"] = [
+            "All Bills Included (Water, Electricity, Heating, Ultra-fast Wi-Fi)",
+            "Directly on De Montfort University (DMU) Campus",
+            "24/7 On-site Concierge & Electronic Fob Access",
+            "Private Resident Gym & Free Weights Suite",
+            "Cinema Room & Private Study Booths"
+        ]
+        details["student_preferred_location"] = "Leicester DMU Campus (Eastern Blvd, LE2 7JB) - Directly on DMU campus, 8 mins to City Centre, 5 mins to Tesco Superstore"
+        details["affordable_rent"] = "£135/week (£585/month) - Highly affordable luxury studio accommodation (<= £160/week)"
+        details["bills_included"] = "All-Inclusive: Electricity, Water, Heating, and 100Mbps Wi-Fi included in rent"
+        details["room_type"] = "studio"
+        details["safety_security"] = "24/7 CCTV surveillance, electronic key-fob entry, 24h on-site reception/concierge & safe neighbourhood"
+        details["facilities"] = "On-site laundry, private fully fitted kitchen, 24/7 fitness gym, quiet study pods, cinema room"
+        details["transport_accessibility"] = "1 min walk to DMU campus, 3 min to bus stop, 12 min to railway station"
+        details["contract_duration"] = "Flexible contracts: 44-week academic term or 51-week full year"
+        details["flatmates"] = "Independent self-contained studio living in vibrant student community"
+        details["reviews_ratings"] = "4.9 / 5.0 (120 student reviews) - 'Top student building in Leicester, amazing gym and staff'"
+        details["deposit_payment"] = "£200 refundable deposit, 3 termly instalments linked to student loans, free cancellation"
+        details["availability"] = "Available for September 2026 Academic Year"
+        return details
+
     # -------------------------------------------------------------------------
     # 2. Generalized Intelligent Multi-Category Parser for Any Listing URL
     # -------------------------------------------------------------------------
@@ -1873,6 +1940,268 @@ STUDENT_BUDGET_BENCHMARKS: Dict[str, float] = {
     "premium_weekly_min": 240.0
 }
 
+# ==============================================================================
+# AMBERSTUDENT PREFERRED LOCATIONS DIRECTORY (https://amberstudent.com/)
+# ==============================================================================
+
+AMBERSTUDENT_PREFERRED_LOCATIONS: List[Dict[str, Any]] = [
+    {
+        "id": "AMBER_LOC_LEIC_01",
+        "name": "Leicester City Centre (LE1)",
+        "city": "Leicester",
+        "postcode_area": "LE1",
+        "university_proximity": "2-8 mins walk to De Montfort University (DMU); 12-15 mins walk to University of Leicester (UoL)",
+        "city_centre_proximity": "Directly in Leicester City Centre / Highcross Shopping Centre",
+        "supermarket_proximity": "3 mins walk to Tesco Superstore / Sainsbury's Local / Marks & Spencer",
+        "transport_links": "5-8 mins walk to Leicester Railway Station, 3 mins to Haymarket & St Margaret's Bus Stations",
+        "typical_weekly_rent_gbp": 115.0,
+        "key_accommodations": [
+            "Dover Street Apartments (44 York St / Dover St)",
+            "Pennine House (Tower St, LE1 6WT)",
+            "Regents Court (Princess Road East, LE1 7LA)",
+            "St Martin's House"
+        ],
+        "vibe": "Ultra-central urban student living, maximum convenience for shopping, culture, dining, and campus access",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LEIC_02",
+        "name": "Clarendon Park & Queens Road (LE2)",
+        "city": "Leicester",
+        "postcode_area": "LE2",
+        "university_proximity": "8-12 mins walk across Victoria Park to University of Leicester (UoL)",
+        "city_centre_proximity": "15-20 mins walk or 6 mins bus to Leicester City Centre",
+        "supermarket_proximity": "Sainsbury's Local, Co-op Food, and local organic grocery stores on Queens Road",
+        "transport_links": "Direct Arriva and Centrebus routes (31, 80) connecting directly to campus and central station",
+        "typical_weekly_rent_gbp": 110.0,
+        "key_accommodations": [
+            "Queens Court Leicester (Jarrom St)",
+            "Victoria Park Student Houses",
+            "Queens Road Shared Residences"
+        ],
+        "vibe": "Quintessential leafy student community with vibrant indie cafes, artisan bakeries, vintage shops, and pubs",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LEIC_03",
+        "name": "The West End & Narborough Road / Bede Park (LE3)",
+        "city": "Leicester",
+        "postcode_area": "LE3",
+        "university_proximity": "3-6 mins walk to De Montfort University (DMU) campus",
+        "city_centre_proximity": "8-10 mins walk across the River Soar into City Centre",
+        "supermarket_proximity": "Lidl (Upperton Rd), Tesco Express, Narborough Rd international supermarkets",
+        "transport_links": "Bus routes 15, 50, 51 along Narborough Road; riverside walking and cycle trails",
+        "typical_weekly_rent_gbp": 120.0,
+        "key_accommodations": [
+            "CODE Student Accommodation (Western Road)",
+            "Ben Russell Court (Eastern Boulevard)",
+            "The Summit (Eastern Boulevard)",
+            "Merlin Heights (Bath Lane)"
+        ],
+        "vibe": "Energetic, multicultural student hub with renowned diverse dining, riverside parks, and student bars",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LEIC_04",
+        "name": "Highfields & London Road Corridor (LE2)",
+        "city": "Leicester",
+        "postcode_area": "LE2",
+        "university_proximity": "Direct midway location: 7 mins to University of Leicester, 12 mins to DMU",
+        "city_centre_proximity": "5-8 mins walk to City Centre and Cultural Quarter",
+        "supermarket_proximity": "Tesco Metro (London Road), Sainsbury's Local, halal & world food markets",
+        "transport_links": "3 mins walk to Leicester Railway Station; main London Road bus corridor",
+        "typical_weekly_rent_gbp": 105.0,
+        "key_accommodations": [
+            "London Road Residences",
+            "Waterloo House",
+            "Granby Street Studios"
+        ],
+        "vibe": "Budget-friendly student corridor with unbeatable rail commuter access and multicultural dining",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LEIC_05",
+        "name": "Oadby Student Village (LE2)",
+        "city": "Leicester",
+        "postcode_area": "LE2",
+        "university_proximity": "Home to University of Leicester Oadby Student Village; 10 mins by university shuttle to UoL campus",
+        "city_centre_proximity": "20 mins by direct bus (Route 80 / 31) to City Centre",
+        "supermarket_proximity": "Sainsbury's Superstore, Asda Oadby, Marks & Spencer Foodhall",
+        "transport_links": "Dedicated student bus service 80 running every 10 mins between Oadby and campus",
+        "typical_weekly_rent_gbp": 135.0,
+        "key_accommodations": [
+            "John Foster Hall",
+            "Beaumont Hall",
+            "Gilbert Murray Hall",
+            "Manor Road Student Complex"
+        ],
+        "vibe": "Peaceful, scenic campus village setting surrounded by botanical gardens and sports facilities",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LEIC_06",
+        "name": "DMU Campus & Hospital Quarter (Jarrom St / Eastern Blvd - LE2)",
+        "city": "Leicester",
+        "postcode_area": "LE2",
+        "university_proximity": "Immediate doorstep access (1-3 mins walk) to De Montfort University and Leicester Royal Infirmary",
+        "city_centre_proximity": "8 mins walk to Clock Tower and Highcross",
+        "supermarket_proximity": "Morrisons Superstore (Freemens Common), Tesco Express (Walnut St)",
+        "transport_links": "Bus route 47, 48 outside; cycle path along River Soar",
+        "typical_weekly_rent_gbp": 114.0,
+        "key_accommodations": [
+            "Queens Court (85 Jarrom St, LE2 7DJ)",
+            "Ben Russell Court (Eastern Blvd, LE2 7BW)",
+            "The Summit (Eastern Blvd, LE2 7JB)",
+            "Filbert Village (Lineker Way, LE2 7FQ)"
+        ],
+        "vibe": "The heart of student living for DMU and medical/nursing students, zero commute required",
+        "amberstudent_url": "https://amberstudent.com/places/search/leicester-1811058253133"
+    },
+    {
+        "id": "AMBER_LOC_LON_01",
+        "name": "London - Bloomsbury & King's Cross (WC1 / N1)",
+        "city": "London",
+        "postcode_area": "WC1",
+        "university_proximity": "Walking distance to UCL, SOAS, Birkbeck, KCL, LSE, and UAL Central Saint Martins",
+        "city_centre_proximity": "Central London Zone 1",
+        "supermarket_proximity": "Waitrose (Brunswick Centre), Sainsbury's, Tesco Express",
+        "transport_links": "Russell Square, King's Cross St. Pancras, and Euston stations",
+        "typical_weekly_rent_gbp": 295.0,
+        "key_accommodations": ["Chapter King's Cross", "Scape Bloomsbury", "iQ Bloomsbury"],
+        "vibe": "Historic academic capital surrounded by world-renowned libraries, museums, and bookstores",
+        "amberstudent_url": "https://amberstudent.com/places/search/london-1811048202351"
+    },
+    {
+        "id": "AMBER_LOC_MAN_01",
+        "name": "Manchester - Oxford Road Corridor & Fallowfield (M13 / M14)",
+        "city": "Manchester",
+        "postcode_area": "M13",
+        "university_proximity": "Walking distance to University of Manchester & Manchester Metropolitan University (MMU)",
+        "city_centre_proximity": "10 mins walk / bus to Manchester Piccadilly & City Centre",
+        "supermarket_proximity": "Sainsbury's Fallowfield, Tesco Express Oxford Road, Asda Hulme",
+        "transport_links": "Oxford Road railway station, busiest bus corridor in Europe (routes 42, 43, 142)",
+        "typical_weekly_rent_gbp": 175.0,
+        "key_accommodations": ["Artisan Heights", "iQ Manchester Gardens", "Kincardine Court"],
+        "vibe": "One of the largest student communities in Europe with legendary live music, culture, and nightlife",
+        "amberstudent_url": "https://amberstudent.com/places/search/manchester-1811048202353"
+    },
+    {
+        "id": "AMBER_LOC_BIR_01",
+        "name": "Birmingham - City Centre & Selly Oak (B1 / B29)",
+        "city": "Birmingham",
+        "postcode_area": "B1",
+        "university_proximity": "Doorstep to Aston Univ & BCU (City Centre); 5 mins to Univ of Birmingham (Selly Oak)",
+        "city_centre_proximity": "Directly in Central Birmingham / Bullring",
+        "supermarket_proximity": "Tesco Superstore (Spring Hill & Selly Oak), Sainsbury's (Selly Oak & City)",
+        "transport_links": "Birmingham New Street station, University train station, West Midlands Metro",
+        "typical_weekly_rent_gbp": 155.0,
+        "key_accommodations": ["The Metalworks", "iQ Penworks House", "Canal Gate"],
+        "vibe": "Thriving metropolitan student scene with canal-side cafes, libraries, and campus living",
+        "amberstudent_url": "https://amberstudent.com/places/search/birmingham-1811048202352"
+    },
+    {
+        "id": "AMBER_LOC_LEE_01",
+        "name": "Leeds - Headingley, Hyde Park & Woodhouse (LS6 / LS2)",
+        "city": "Leeds",
+        "postcode_area": "LS6",
+        "university_proximity": "Walking distance to University of Leeds & Leeds Beckett University",
+        "city_centre_proximity": "10-15 mins walk to Leeds City Centre / Trinity Leeds",
+        "supermarket_proximity": "Sainsbury's Headingley, Co-op Hyde Park, Morrisons Merrion Centre",
+        "transport_links": "Headingley & Burley Park stations; frequent bus routes 1, 6, 28 along Otley Road",
+        "typical_weekly_rent_gbp": 140.0,
+        "key_accommodations": ["Carlton Hill", "White Rose View", "The Plaza Leeds"],
+        "vibe": "Vibrant, tight-knit student neighborhood famed for the Otley Run, parks, and indie cinema",
+        "amberstudent_url": "https://amberstudent.com/places/search/leeds-1811048202354"
+    }
+]
+
+
+def get_amberstudent_preferred_locations(city: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Returns AmberStudent preferred locations, optionally filtered by city name.
+    Source: https://amberstudent.com/
+    """
+    if not city:
+        return AMBERSTUDENT_PREFERRED_LOCATIONS
+
+    c_lower = str(city).lower().strip()
+    return [loc for loc in AMBERSTUDENT_PREFERRED_LOCATIONS if loc["city"].lower() == c_lower]
+
+
+def match_amberstudent_location(query: Any) -> Optional[Dict[str, Any]]:
+    """
+    Matches a location string against AmberStudent's preferred locations catalog (https://amberstudent.com/).
+    Matches by postcode (e.g. LE1, LE2, LE3, WC1, M13, B1, LS6), city name, neighbourhood name,
+    or key AmberStudent property names (Dover Street, Queens Court, Ben Russell, Pennine House, Summit, CODE).
+    """
+    if not query or not isinstance(query, str):
+        return None
+
+    q_lower = query.lower().strip()
+
+    # 1. Exact or substring match on key accommodations
+    for loc in AMBERSTUDENT_PREFERRED_LOCATIONS:
+        for acc in loc.get("key_accommodations", []):
+            acc_token = acc.split("(")[0].strip().lower()
+            if acc_token in q_lower:
+                return loc
+
+    # 2. Match on postcode area (word-boundary matched)
+    for loc in AMBERSTUDENT_PREFERRED_LOCATIONS:
+        pc = loc.get("postcode_area", "").lower()
+        if pc and re.search(r"\b" + re.escape(pc) + r"\b", q_lower):
+            # Check city consistency if city is mentioned
+            city = loc.get("city", "").lower()
+            if city in q_lower or not any(other["city"].lower() in q_lower for other in AMBERSTUDENT_PREFERRED_LOCATIONS if other["city"] != loc["city"]):
+                return loc
+
+    # 3. Match on neighbourhood keywords
+    for loc in AMBERSTUDENT_PREFERRED_LOCATIONS:
+        name_clean = loc.get("name", "").lower()
+        tokens = re.split(r"[-_/,()& ]+", name_clean)
+        meaningful_tokens = [t for t in tokens if len(t) > 3 and t not in ["city", "centre", "street", "road", "park"]]
+        if any(tok in q_lower for tok in meaningful_tokens):
+            return loc
+
+    # 4. Fallback match on city
+    for loc in AMBERSTUDENT_PREFERRED_LOCATIONS:
+        city = loc.get("city", "").lower()
+        if city in q_lower:
+            return loc
+
+    return None
+
+
+def format_amberstudent_locations_catalog(city: Optional[str] = None) -> str:
+    """
+    Returns a human-readable formatted directory of AmberStudent Preferred Locations
+    from https://amberstudent.com/
+    """
+    locations = get_amberstudent_preferred_locations(city)
+    if not locations:
+        return f"No AmberStudent preferred locations found for '{city}'."
+
+    lines = [
+        "=" * 85,
+        "      AMBERSTUDENT PREFERRED STUDENT LOCATIONS DIRECTORY (https://amberstudent.com/)      ",
+        "=" * 85,
+        f"Official Student-Preferred Neighborhoods & Destinations ({len(locations)} zones listed)",
+        "-" * 85
+    ]
+
+    for idx, loc in enumerate(locations, 1):
+        lines.append(f"\n[{idx}] {loc['name']} | City: {loc['city']} (Postcode: {loc['postcode_area']})")
+        lines.append(f"    • University Proximity : {loc['university_proximity']}")
+        lines.append(f"    • City Centre / Mall   : {loc['city_centre_proximity']}")
+        lines.append(f"    • Supermarkets         : {loc['supermarket_proximity']}")
+        lines.append(f"    • Transport Hubs       : {loc['transport_links']}")
+        lines.append(f"    • Typical Rent         : ~£{loc['typical_weekly_rent_gbp']:.0f}/week (All-inclusive typical)")
+        lines.append(f"    • Top Accommodations   : {', '.join(loc['key_accommodations'])}")
+        lines.append(f"    • AmberStudent URL     : {loc['amberstudent_url']}")
+
+    lines.append("\n" + "=" * 85)
+    return "\n".join(lines)
+
 
 def validate_student_accommodation_factors(record: Any) -> Tuple[bool, List[str], Dict[str, Any]]:
     """
@@ -1922,15 +2251,28 @@ def validate_student_accommodation_factors(record: Any) -> Tuple[bool, List[str]
             proximity_items.append("Public Transport Hub")
 
         loc_points = 5.0 + min(10.0, len(proximity_items) * 2.5)
+        matched_amber = match_amberstudent_location(loc_str)
+        if matched_amber:
+            loc_points = 15.0
+            highlights.append(f"AmberStudent Preferred Location: {matched_amber['name']} (https://amberstudent.com/)")
+            factor_breakdown["student_preferred_location"] = {
+                "status": "VALID",
+                "value": loc_str,
+                "proximities_detected": proximity_items,
+                "points": loc_points,
+                "amberstudent_match": matched_amber["name"],
+                "amberstudent_url": matched_amber.get("amberstudent_url", "https://amberstudent.com/")
+            }
+        else:
+            if "Campus / University" in proximity_items:
+                highlights.append("Prime proximity to university campus")
+            factor_breakdown["student_preferred_location"] = {
+                "status": "VALID",
+                "value": loc_str,
+                "proximities_detected": proximity_items,
+                "points": loc_points
+            }
         points += loc_points
-        if "Campus / University" in proximity_items:
-            highlights.append("Prime proximity to university campus")
-        factor_breakdown["student_preferred_location"] = {
-            "status": "VALID",
-            "value": loc_str,
-            "proximities_detected": proximity_items,
-            "points": loc_points
-        }
 
     # 2. Affordable Rent
     rent_val = record.get("affordable_rent") or record.get("price")
@@ -2384,11 +2726,23 @@ def format_student_property_details(record: Dict[str, Any], evaluation: Optional
         for h in highlights[:4]:
             lines.append(f"      ✓ {h}")
 
+    stu_loc_val = record.get('student_preferred_location', location)
+    matched_amber = match_amberstudent_location(stu_loc_val)
+
     lines.extend([
         "",
         "[3] THE 12 ESSENTIAL STUDENT-CENTRIC FACTORS",
         f"  1. Student-Preferred Location:",
-        f"     -> {record.get('student_preferred_location', location)}",
+        f"     -> {stu_loc_val}",
+    ])
+
+    if matched_amber:
+        lines.append(f"     [✓ AmberStudent Verified Preferred Location: {matched_amber['name']} | https://amberstudent.com/]")
+        lines.append(f"       • Campus Proximity : {matched_amber['university_proximity']}")
+        lines.append(f"       • City / Retail    : {matched_amber['city_centre_proximity']} | {matched_amber['supermarket_proximity']}")
+        lines.append(f"       • Transport Links  : {matched_amber['transport_links']}")
+
+    lines.extend([
         f"  2. Affordable Rent:",
         f"     -> {record.get('affordable_rent', f'£{price}/week (Within student budget)')}",
         f"  3. Bills Included:",

@@ -480,6 +480,15 @@ class TestWhiteBoxBranchCoverage(unittest.TestCase):
         loaded_empty = load_student_accommodations(json_path="non_existent_file_path_12345.json")
         self.assertEqual(loaded_empty, [])
 
+        # 11. match_amberstudent_location branches
+        from src.data_cleaning import match_amberstudent_location, get_amberstudent_preferred_locations, format_amberstudent_locations_catalog
+        self.assertIsNone(match_amberstudent_location(None))
+        self.assertIsNone(match_amberstudent_location(12345))
+        self.assertIsNone(match_amberstudent_location("unmatched_remote_valley_xyz"))
+        self.assertIsNotNone(match_amberstudent_location("Manchester M13 Oxford Road"))
+        self.assertIn("No AmberStudent preferred locations", format_amberstudent_locations_catalog("Atlantis"))
+        self.assertGreater(len(get_amberstudent_preferred_locations()), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

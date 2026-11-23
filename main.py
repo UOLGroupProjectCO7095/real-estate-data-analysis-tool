@@ -17,6 +17,8 @@ from src.data_cleaning import (
     format_student_property_details,
     create_student_property_record,
     save_student_property_record,
+    format_amberstudent_locations_catalog,
+    get_amberstudent_preferred_locations,
 )
 from src.data_collection import fetch_raw_collected_data
 from src.property_search import Property
@@ -183,10 +185,38 @@ def handle_manual_student_property_entry():
     # The 12 Student Factors
     print("\n--- [Part B: 12 Student-Centric Accommodation Factors] ---")
 
-    print("\n1. Student-Preferred Location (Close to university, city centre, supermarkets, transport):")
-    stu_loc = input("   Enter location details [default: Leicester LE1 (5 mins to University of Leicester & DMU, 3 mins to Tesco, 8 mins to City Centre)]: ").strip()
-    if not stu_loc:
-        stu_loc = "Leicester LE1 (5 mins to University of Leicester & DMU, 3 mins to Tesco, 8 mins to City Centre)"
+    print("\n1. Student-Preferred Location (Source: https://amberstudent.com/):")
+    print("   Choose an AmberStudent Preferred Location or press [Enter] for default:")
+    print("     [1] Leicester City Centre (LE1) - Dover St, Highcross, Station (DMU/UoL)")
+    print("     [2] Clarendon Park & Queens Rd (LE2) - Victoria Park, UoL Campus, Cafes & Tesco")
+    print("     [3] The West End & Narborough Rd (LE3) - CODE, Bede Park, River Soar, DMU Doorstep")
+    print("     [4] DMU Campus Quarter (LE2) - Queens Court, Ben Russell Court, Jarrom St")
+    print("     [5] Highfields & London Rd Corridor (LE2) - Railway Station, UoL & DMU")
+    print("     [6] London - Bloomsbury & King's Cross (WC1) - UCL, KCL, LSE")
+    print("     [7] Manchester - Oxford Road Corridor (M13) - Univ of Manchester, MMU")
+    print("     [8] Enter custom location / paste from https://amberstudent.com/...")
+    loc_choice = input("   Select option (1-8) or enter text [default: 1]: ").strip()
+
+    amber_loc_map = {
+        "1": "Leicester City Centre (LE1) - 5 mins to University of Leicester & DMU, 3 mins to Tesco Superstore, 8 mins to City Centre & Station",
+        "2": "Clarendon Park & Queens Road (LE2) - 8 mins across Victoria Park to University of Leicester, Queens Rd cafes & Tesco",
+        "3": "The West End & Narborough Road (LE3) - 3 mins walk to DMU campus, Bede Park, Lidl & River Soar",
+        "4": "DMU Campus & Hospital Quarter (LE2) - 1-3 mins walk to DMU, Jarrom St / Eastern Blvd, 8 mins to City Centre",
+        "5": "Highfields & London Road Corridor (LE2) - Midway between UoL and DMU, 3 mins to Leicester Railway Station & Tesco",
+        "6": "London Bloomsbury & King's Cross (WC1) - Walking distance to UCL, KCL, LSE, King's Cross & Brunswick Centre",
+        "7": "Manchester Oxford Road Corridor (M13) - Walking distance to University of Manchester & MMU, Oxford Rd Station"
+    }
+
+    if loc_choice in amber_loc_map:
+        stu_loc = amber_loc_map[loc_choice]
+        print(f"   ✓ Selected AmberStudent Verified Location: {stu_loc.split(' - ')[0]}")
+    elif loc_choice == "8":
+        custom_in = input("   Enter your custom location / AmberStudent details: ").strip()
+        stu_loc = custom_in if custom_in else amber_loc_map["1"]
+    elif not loc_choice:
+        stu_loc = amber_loc_map["1"]
+    else:
+        stu_loc = loc_choice
 
     print("\n2. Affordable Rent (Weekly/monthly rent fitting student budget):")
     aff_rent = input(f"   Enter rent details [default: £{price:.0f}/week (£{price*52/12:.0f}/month) - Highly affordable within student budget (<= £160/wk)]: ").strip()
@@ -482,6 +512,19 @@ def handle_compare_two_properties():
     print("=" * 65)
 
 
+def handle_browse_amberstudent_locations():
+    """Displays the AmberStudent Preferred Locations Directory from https://amberstudent.com/"""
+    print("\n" + "=" * 75)
+    print("      AMBERSTUDENT PREFERRED STUDENT LOCATIONS DIRECTORY                 ")
+    print("      Reference & Verification Source: https://amberstudent.com/        ")
+    print("=" * 75)
+    print("Filter by city (e.g. Leicester, London, Manchester, Birmingham, Leeds) or press [Enter] for all:")
+    city_filter = input("Enter city [default: all]: ").strip()
+    catalog_text = format_amberstudent_locations_catalog(city_filter if city_filter else None)
+    print("\n" + catalog_text)
+    print("=" * 75)
+
+
 def handle_run_all_tests():
     """Runs all test suites and displays software quality metrics."""
     import run_tests_with_coverage
@@ -496,14 +539,15 @@ def main():
         print("1. Process & Validate Stored Properties (Data/properties.csv)")
         print("2. Merge & Process Member 1 & Member 4 Sources (Open Simulation)")
         print("3. Add Manual Student Property Record (12 Student Factors & Breakdown)")
-        print("4. Automated Property URL Ingestion & Real Data Validation")
-        print("5. Identify & Handle Duplicate Property Records (Data Deduplication)")
-        print("6. Compare Two Property Records (Side-by-Side Analysis)")
-        print("7. Run Test Suites & Check Coverage (CO7095 QA Standard)")
-        print("8. Exit")
+        print("4. Browse AmberStudent Preferred Locations (https://amberstudent.com/)")
+        print("5. Automated Property URL Ingestion & Real Data Validation")
+        print("6. Identify & Handle Duplicate Property Records (Data Deduplication)")
+        print("7. Compare Two Property Records (Side-by-Side Analysis)")
+        print("8. Run Test Suites & Check Coverage (CO7095 QA Standard)")
+        print("9. Exit")
         print("=" * 65)
 
-        choice = input("Select an option (1-8): ").strip()
+        choice = input("Select an option (1-9): ").strip()
         if choice == "1":
             handle_process_collected_data()
         elif choice == "2":
@@ -511,18 +555,20 @@ def main():
         elif choice == "3":
             handle_manual_student_property_entry()
         elif choice == "4":
-            handle_manual_validation()
+            handle_browse_amberstudent_locations()
         elif choice == "5":
-            handle_detect_and_handle_duplicates()
+            handle_manual_validation()
         elif choice == "6":
-            handle_compare_two_properties()
+            handle_detect_and_handle_duplicates()
         elif choice == "7":
-            handle_run_all_tests()
+            handle_compare_two_properties()
         elif choice == "8":
+            handle_run_all_tests()
+        elif choice == "9":
             print("\nExiting application. Goodbye!")
             break
         else:
-            print("[!] Invalid option. Please enter 1, 2, 3, 4, 5, 6, 7, or 8.")
+            print("[!] Invalid option. Please enter 1, 2, 3, 4, 5, 6, 7, 8, or 9.")
 
 
 if __name__ == "__main__":
