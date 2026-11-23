@@ -691,6 +691,174 @@ class TestAcceptanceCriteria(unittest.TestCase):
         with self.assertRaises(TypeError):
             report_detected_duplicates(12345)
 
+    # -------------------------------------------------------------------------
+    # USER STORY: Manual Student Accommodation Data Entry & Listing Breakdown
+    # 12 Student Factors:
+    #   1. Student-preferred Location
+    #   2. Affordable Rent
+    #   3. Bills Included
+    #   4. Room Type
+    #   5. Safety and Security
+    #   6. Facilities
+    #   7. Transport Accessibility
+    #   8. Contract Duration
+    #   9. Flatmates
+    #  10. Reviews and Ratings
+    #  11. Deposit and Payment
+    #  12. Availability
+    # -------------------------------------------------------------------------
+    def test_student_factors_validation_all_12_valid(self):
+        from src.data_cleaning import validate_student_accommodation_factors, create_student_property_record
+        sample_student_prop = create_student_property_record(
+            property_id="PROP_STU_TEST_01",
+            property_type="ensuite",
+            location="Leicester LE1 5WW (Close to University of Leicester)",
+            price=115.0,
+            bedrooms=1,
+            bathrooms=1,
+            listing_url="https://amberstudent.com/places/dover-street-apartments-leicester",
+            student_preferred_location="Leicester LE1 (5 mins to University, 8 mins to City Centre & Tesco Supermarket, 2 mins to bus stop)",
+            affordable_rent="£115/week (£498/month) - Within student budget (<= £160/wk)",
+            bills_included="All-Inclusive: Electricity, Water, Heating, and High-Speed Wi-Fi",
+            room_type="En-suite (Private bathroom, shared communal kitchen)",
+            safety_security="24/7 CCTV surveillance, electronic key-fob entry, reception desk & safe neighbourhood",
+            facilities="On-site laundry, fully fitted kitchen, gym, quiet study rooms, common lounge",
+            transport_accessibility="Walking distance to campus (5 mins), bus stops outside, 10 mins to train station",
+            contract_duration="Flexible contracts: 44-week academic term, 51-week full year, or semester stays",
+            flatmates="Mixed-gender flats (single-gender female-only and male-only wings available)",
+            reviews_ratings="4.8 / 5.0 (92 student reviews) - 'Excellent study atmosphere, fast Wi-Fi and friendly reception'",
+            deposit_payment="£150 refundable deposit, 3 termly instalments linked to student loans, free cancellation",
+            availability="Available for September 2026 Academic Year (Early move-in available)"
+        )
+
+        is_valid, errors, evaluation = validate_student_accommodation_factors(sample_student_prop)
+        self.assertTrue(is_valid)
+        self.assertEqual(len(errors), 0)
+        self.assertTrue(evaluation["is_student_suitable"])
+        self.assertGreaterEqual(evaluation["suitability_score"], 90.0)
+        self.assertEqual(evaluation["suitability_level"], "EXCELLENT")
+        self.assertEqual(evaluation["weekly_rent"], 115.0)
+        self.assertIn("High Affordability", evaluation["affordability_tier"])
+        self.assertGreaterEqual(evaluation["bills_savings_monthly"], 100.0)
+        self.assertGreaterEqual(len(evaluation["student_highlights"]), 3)
+
+    def test_student_factors_validation_missing_and_invalid(self):
+        from src.data_cleaning import validate_student_accommodation_factors
+        # Non-dict record
+        ok, errs, _ = validate_student_accommodation_factors(None)
+        self.assertFalse(ok)
+        self.assertIn("RECORD_MUST_BE_DICT", errs)
+
+        # Record missing multiple required student factors
+        partial_record = {
+            "property_id": "PROP_STU_PARTIAL",
+            "affordable_rent": "£120/week",
+            "bills_included": "Electricity and water"
+        }
+        ok, errs, eval_res = validate_student_accommodation_factors(partial_record)
+        self.assertFalse(ok)
+        self.assertIn("student_preferred_location is required and cannot be empty", errs)
+        self.assertIn("room_type is required and cannot be empty", errs)
+        self.assertIn("safety_security is required and cannot be empty", errs)
+        self.assertIn("facilities is required and cannot be empty", errs)
+        self.assertIn("transport_accessibility is required and cannot be empty", errs)
+        self.assertIn("contract_duration is required and cannot be empty", errs)
+        self.assertIn("flatmates is required and cannot be empty", errs)
+        self.assertIn("reviews_ratings is required and cannot be empty", errs)
+        self.assertIn("deposit_payment is required and cannot be empty", errs)
+        self.assertIn("availability is required and cannot be empty", errs)
+
+    def test_student_property_record_full_validation(self):
+        from src.data_cleaning import validate_student_property_record, create_student_property_record
+        valid_student_record = create_student_property_record(
+            property_id="PROP_STU_VALID_99",
+            property_type="studio",
+            location="Manchester M1 4ET (Close to University & Supermarkets)",
+            price=145.0,
+            bedrooms=0,
+            bathrooms=1,
+            listing_url="https://studentliving.co.uk/places/manchester-studio"
+        )
+        is_valid, errors, evaluation = validate_student_property_record(valid_student_record)
+        self.assertTrue(is_valid)
+        self.assertEqual(len(errors), 0)
+        self.assertTrue(evaluation["is_student_suitable"])
+
+        # Record with invalid price format
+        bad_price_record = valid_student_record.copy()
+        bad_price_record["price"] = -50
+        bad_price_record["affordable_rent"] = "-50"
+        is_valid, errors, _ = validate_student_property_record(bad_price_record)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("price" in e.lower() or "rent" in e.lower() for e in errors))
+
+    def test_format_student_property_details_listing_breakdown(self):
+        from src.data_cleaning import format_student_property_details, create_student_property_record
+        prop = create_student_property_record(
+            property_id="PROP_STU_SHOW_12",
+            property_type="ensuite",
+            location="Leicester (Dover Street, LE1)",
+            price=114.0
+        )
+        report = format_student_property_details(prop)
+
+        # Check header
+        self.assertIn("STUDENT ACCOMMODATION SUITABILITY & PROPERTY DETAILS BREAKDOWN", report)
+        self.assertIn("PROP_STU_SHOW_12", report)
+        self.assertIn("Leicester (Dover Street, LE1)", report)
+
+        # Check presence of all 12 factors in listing breakdown
+        self.assertIn("1. Student-Preferred Location:", report)
+        self.assertIn("2. Affordable Rent:", report)
+        self.assertIn("3. Bills Included:", report)
+        self.assertIn("4. Room Type:", report)
+        self.assertIn("5. Safety and Security:", report)
+        self.assertIn("6. Facilities:", report)
+        self.assertIn("7. Transport Accessibility:", report)
+        self.assertIn("8. Contract Duration:", report)
+        self.assertIn("9. Flatmates:", report)
+        self.assertIn("10. Reviews and Ratings:", report)
+        self.assertIn("11. Deposit and Payment:", report)
+        self.assertIn("12. Availability:", report)
+
+        # Check verification footer
+        self.assertIn("VERIFICATION STATUS", report)
+
+    def test_student_property_storage_persistence(self):
+        import tempfile
+        import os
+        from src.data_cleaning import save_student_property_record, load_student_accommodations, create_student_property_record
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_csv = os.path.join(tmp_dir, "test_properties.csv")
+            temp_json = os.path.join(tmp_dir, "test_students.json")
+
+            prop = create_student_property_record(
+                property_id="PROP_STU_PERSIST_1",
+                property_type="studio",
+                location="Bristol BS1 5RR",
+                price=150.0
+            )
+
+            # Persist record
+            saved, msg = save_student_property_record(prop, csv_path=temp_csv, json_path=temp_json)
+            self.assertTrue(saved)
+            self.assertIn("PROP_STU_PERSIST_1", msg)
+
+            # Verify saved in JSON
+            loaded = load_student_accommodations(json_path=temp_json)
+            self.assertEqual(len(loaded), 1)
+            self.assertEqual(loaded[0]["property_id"], "PROP_STU_PERSIST_1")
+            self.assertIn("student_preferred_location", loaded[0])
+            self.assertIn("bills_included", loaded[0])
+
+            # Verify saved in CSV
+            with open(temp_csv, "r", encoding="utf-8") as f:
+                content = f.read()
+                self.assertIn("PROP_STU_PERSIST_1", content)
+                self.assertIn("studio", content)
+                self.assertIn("Bristol BS1 5RR", content)
+
 
 if __name__ == "__main__":
     unittest.main()

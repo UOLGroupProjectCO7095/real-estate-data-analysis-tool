@@ -391,6 +391,95 @@ class TestWhiteBoxBranchCoverage(unittest.TestCase):
         self.assertIn("SIDE-BY-SIDE PROPERTY RECORD COMPARISON", tbl)
         self.assertIn("...", tbl) # Truncation executed
 
+    def test_white_box_student_accommodation_branches(self):
+        from src.data_cleaning import (
+            validate_student_accommodation_factors,
+            validate_student_property_record,
+            format_student_property_details,
+            create_student_property_record,
+            load_student_accommodations
+        )
+
+        # 1. validate_student_accommodation_factors None/non-dict branch
+        self.assertFalse(validate_student_accommodation_factors(None)[0])
+        self.assertFalse(validate_student_accommodation_factors(["not_a_dict"])[0])
+
+        # 2. Location branches
+        r_loc_empty = create_student_property_record(student_preferred_location="   ")
+        self.assertFalse(validate_student_accommodation_factors(r_loc_empty)[0])
+
+        # 3. Affordable rent branches: non-numeric, zero, monthly pcm, moderate, premium
+        r_rent_non_num = create_student_property_record(affordable_rent="Free accommodation")
+        self.assertFalse(validate_student_accommodation_factors(r_rent_non_num)[0])
+
+        r_rent_zero = create_student_property_record(affordable_rent="£0/week")
+        self.assertFalse(validate_student_accommodation_factors(r_rent_zero)[0])
+
+        r_rent_monthly = create_student_property_record(affordable_rent="£850 pcm monthly")
+        ok, _, ev_monthly = validate_student_accommodation_factors(r_rent_monthly)
+        self.assertTrue(ok)
+        self.assertEqual(ev_monthly["monthly_rent"], 850.0)
+
+        r_rent_mod = create_student_property_record(affordable_rent="£200/week")
+        ok, _, ev_mod = validate_student_accommodation_factors(r_rent_mod)
+        self.assertTrue(ok)
+        self.assertIn("Moderate Affordability", ev_mod["affordability_tier"])
+
+        r_rent_prem = create_student_property_record(affordable_rent="£320/week")
+        ok, _, ev_prem = validate_student_accommodation_factors(r_rent_prem)
+        self.assertTrue(ok)
+        self.assertIn("Premium Accommodation", ev_prem["affordability_tier"])
+
+        # 4. Bills branches: partial bills, bills excluded
+        r_bills_partial = create_student_property_record(bills_included="Only water is included")
+        ok, _, ev_b_part = validate_student_accommodation_factors(r_bills_partial)
+        self.assertTrue(ok)
+        self.assertIn("Partially Included", ev_b_part["bills_status"])
+
+        r_bills_excl = create_student_property_record(bills_included="No bills included, tenant pays all")
+        ok, _, ev_b_excl = validate_student_accommodation_factors(r_bills_excl)
+        self.assertTrue(ok)
+        self.assertEqual(ev_b_excl["bills_status"], "Bills Excluded")
+
+        # 5. Room type branches: unknown type, studio, private room, shared room
+        r_room_bad = create_student_property_record(room_type="penthouse_suite_invalid")
+        self.assertFalse(validate_student_accommodation_factors(r_room_bad)[0])
+
+        r_room_studio = create_student_property_record(room_type="studio")
+        ok, _, _ = validate_student_accommodation_factors(r_room_studio)
+        self.assertTrue(ok)
+
+        r_room_priv = create_student_property_record(room_type="private_room")
+        ok, _, _ = validate_student_accommodation_factors(r_room_priv)
+        self.assertTrue(ok)
+
+        # 6. Safety & Facilities: facilities as list, basic security
+        r_fac_list = create_student_property_record(
+            facilities=["On-site laundry", "Gym", "Study room", "Communal kitchen"],
+            safety_security="CCTV and secure entry"
+        )
+        ok, _, _ = validate_student_accommodation_factors(r_fac_list)
+        self.assertTrue(ok)
+
+        # 7. Reviews branches: 10-point scale (/10)
+        r_rev_10 = create_student_property_record(reviews_ratings="9.0 / 10 rating from students")
+        ok, _, ev_rev = validate_student_accommodation_factors(r_rev_10)
+        self.assertTrue(ok)
+        self.assertEqual(ev_rev["factor_breakdown"]["reviews_ratings"]["rating_score"], 4.5)
+
+        # 8. validate_student_property_record None branch
+        self.assertFalse(validate_student_property_record(None)[0])
+
+        # 9. format_student_property_details non-dict branch and evaluation=None branch
+        self.assertIn("Error", format_student_property_details("not_dict"))
+        full_prop = create_student_property_record(property_id="PROP_WB_01")
+        fmt_res = format_student_property_details(full_prop)
+        self.assertIn("PROP_WB_01", fmt_res)
+
+        # 10. load_student_accommodations non-existent path
+        loaded_empty = load_student_accommodations(json_path="non_existent_file_path_12345.json")
+        self.assertEqual(loaded_empty, [])
+
 
 if __name__ == "__main__":
     unittest.main()
