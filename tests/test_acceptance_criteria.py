@@ -913,6 +913,101 @@ class TestAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(summit["property_type"], "studio")
         self.assertIn("DMU", summit["student_preferred_location"])
 
+    # -------------------------------------------------------------------------
+    # Acceptance Tests: Option 7 - Identify Missing Property Information
+    # -------------------------------------------------------------------------
+    def test_identify_missing_property_info(self):
+        from src.data_cleaning import identify_missing_property_info, generate_missing_data_report
+
+        complete_rec = {
+            "property_id": "PROP_COMPLETE_1",
+            "property_type": "flat",
+            "location": "Leicester LE1",
+            "price": 140.0,
+            "bedrooms": 1,
+            "bathrooms": 1.0,
+            "listing_url": "https://example.com/prop1"
+        }
+
+        incomplete_rec_1 = {
+            "property_id": "PROP_INCOMPLETE_1",
+            "property_type": "", # empty string
+            "location": "   ",   # whitespace string
+            "price": None,       # None value
+            "bedrooms": 2,
+            "bathrooms": 1.0,
+            "listing_url": "https://example.com/prop2"
+        }
+
+        incomplete_rec_2 = {
+            "property_id": "PROP_INCOMPLETE_2",
+            "property_type": "studio",
+            # location missing key
+            "price": "nan",      # 'nan' string
+            "bedrooms": 1,
+            "bathrooms": 1.0,
+            "listing_url": ""    # empty URL
+        }
+
+        dataset = [complete_rec, incomplete_rec_1, incomplete_rec_2, "not_a_dict"]
+
+        analysis = identify_missing_property_info(dataset)
+        self.assertEqual(analysis["total_records"], 4)
+        self.assertEqual(analysis["complete_count"], 1)
+        self.assertEqual(analysis["incomplete_count"], 3)
+        self.assertEqual(analysis["completeness_rate"], 25.0)
+
+        # Field counts check
+        self.assertGreater(analysis["field_missing_counts"]["price"], 0)
+        self.assertGreater(analysis["field_missing_counts"]["location"], 0)
+
+        # Non-list edge cases
+        empty_res = identify_missing_property_info([])
+        self.assertEqual(empty_res["total_records"], 0)
+        self.assertEqual(empty_res["completeness_rate"], 0.0)
+
+        none_res = identify_missing_property_info(None)
+        self.assertEqual(none_res["total_records"], 0)
+
+    def test_generate_missing_data_report(self):
+        from src.data_cleaning import generate_missing_data_report
+
+        recs = [
+            {"property_id": "P1", "property_type": "house", "location": "Leeds", "price": 1000, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://a.com"},
+            {"property_id": "P2", "property_type": "", "location": "Leeds", "price": None, "bedrooms": 2, "bathrooms": 1, "listing_url": "https://b.com"}
+        ]
+        report = generate_missing_data_report(recs)
+        self.assertIn("MISSING PROPERTY INFORMATION & COMPLETENESS AUDIT REPORT", report)
+        self.assertIn("P2", report)
+        self.assertIn("RECOMMENDATIONS", report)
+
+        # 100% complete dataset
+        report_clean = generate_missing_data_report([recs[0]])
+        self.assertIn("EXCELLENT DATA QUALITY", report_clean)
+
+    # -------------------------------------------------------------------------
+    # Acceptance Tests: Option 10 - View Data Processing Summary & Reports
+    # -------------------------------------------------------------------------
+    def test_executive_data_processing_summary_and_dashboard(self):
+        from src.data_cleaning import generate_data_processing_summary, format_executive_summary_report
+
+        summary = generate_data_processing_summary()
+        self.assertIn("dataset_total", summary)
+        self.assertIn("validation", summary)
+        self.assertIn("deduplication", summary)
+        self.assertIn("completeness", summary)
+        self.assertIn("student_accommodations", summary)
+        self.assertIn("qa_health", summary)
+
+        dashboard_text = format_executive_summary_report()
+        self.assertIn("EXECUTIVE QA SUMMARY DASHBOARD", dashboard_text)
+        self.assertIn("[1] DATASET OVERVIEW & STORAGE METRICS", dashboard_text)
+        self.assertIn("[2] DATA QUALITY & VALIDATION AUDIT", dashboard_text)
+        self.assertIn("[3] DEDUPLICATION & RECORD LINKAGE", dashboard_text)
+        self.assertIn("[4] DATASET COMPLETENESS & MISSING INFORMATION", dashboard_text)
+        self.assertIn("[5] STUDENT ACCOMMODATION & AMBERSTUDENT INTEGRATION", dashboard_text)
+        self.assertIn("[6] SOFTWARE MEASUREMENTS & QA COMPLIANCE", dashboard_text)
+
 
 if __name__ == "__main__":
     unittest.main()

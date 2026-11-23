@@ -489,6 +489,49 @@ class TestWhiteBoxBranchCoverage(unittest.TestCase):
         self.assertIn("No AmberStudent preferred locations", format_amberstudent_locations_catalog("Atlantis"))
         self.assertGreater(len(get_amberstudent_preferred_locations()), 0)
 
+    def test_white_box_missing_info_and_summary_branches(self):
+        from src.data_cleaning import (
+            identify_missing_property_info,
+            generate_missing_data_report,
+            generate_data_processing_summary,
+            format_executive_summary_report,
+            create_student_property_record,
+            save_student_property_record
+        )
+        import tempfile
+        import os
+
+        # 1. identify_missing_property_info branches: empty list, custom fields, empty dict, missing property_id
+        r_empty_coll = {"property_id": None, "amenities": [], "price": "   "}
+        res = identify_missing_property_info([r_empty_coll], fields_to_check=["amenities", "price"])
+        self.assertEqual(res["incomplete_count"], 1)
+
+        # 2. generate_missing_data_report with > 15 incomplete items
+        many_incompletes = [{"property_id": f"P_INC_{i}", "price": None} for i in range(20)]
+        rep = generate_missing_data_report(many_incompletes)
+        self.assertIn("and 5 more incomplete records", rep)
+
+        # 3. generate_data_processing_summary with explicit records list
+        summ = generate_data_processing_summary(records=[
+            {"property_id": "P1", "property_type": "flat", "location": "LE1", "price": 100, "bedrooms": 1, "bathrooms": 1, "listing_url": "https://a.com"}
+        ])
+        self.assertEqual(summ["dataset_total"], 1)
+        self.assertIn("EXECUTIVE QA SUMMARY DASHBOARD", format_executive_summary_report(records=[]))
+
+        # 4. save_student_property_record update existing record branch
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_csv = os.path.join(tmp_dir, "props.csv")
+            tmp_json = os.path.join(tmp_dir, "stu.json")
+
+            rec = create_student_property_record(property_id="PROP_REWRITE_1")
+            ok1, _ = save_student_property_record(rec, csv_path=tmp_csv, json_path=tmp_json)
+            self.assertTrue(ok1)
+
+            # Re-saving same ID updates JSON and skips duplicate CSV row
+            rec["price"] = 135.0
+            ok2, _ = save_student_property_record(rec, csv_path=tmp_csv, json_path=tmp_json)
+            self.assertTrue(ok2)
+
 
 if __name__ == "__main__":
     unittest.main()
