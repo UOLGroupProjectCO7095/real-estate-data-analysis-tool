@@ -628,12 +628,40 @@ def handle_detect_and_manage_duplicates():
 
         if sub_choice == "1":
             print("\n[*] Comparing property records and identifying matching information...")
-            matches = identify_matching_property_info(records)
-            print(f"  • Total Matches Found: {len(matches)}")
-            for m in matches[:10]:
-                print(f"    - [{m['match_type'].upper()}] Record #{m['record_a_index']} matches #{m['record_b_index']} ({m['similarity_score']:.1f}% match): {m['reason']}")
-            if len(matches) > 10:
-                print(f"    ... and {len(matches) - 10} more matching pairs.")
+            print("  [1] Scan entire dataset for matching/duplicate property pairs (Default)")
+            print("  [2] Select two specific records to compare matching information")
+            mode_choice = input("Select comparison mode (1 or 2) [default: 1]: ").strip()
+
+            if mode_choice == "2":
+                if len(records) < 2:
+                    print("[!] Need at least 2 records to compare.")
+                else:
+                    for idx, r in enumerate(records[:10]):
+                        print(f"  [{idx}] ID: {r.get('property_id'):<16} | {r.get('property_type'):<10} | {r.get('location'):<20} | £{r.get('price')}")
+                    idx_a_str = input(f"Select index for Record A [default: 0]: ").strip()
+                    idx_b_str = input(f"Select index for Record B [default: 1]: ").strip()
+                    idx_a = int(idx_a_str) if idx_a_str.isdigit() and int(idx_a_str) < len(records) else 0
+                    idx_b = int(idx_b_str) if idx_b_str.isdigit() and int(idx_b_str) < len(records) else 1
+                    match_res = identify_matching_property_info(records[idx_a], records[idx_b])
+                    print(f"\n--- Matching Information Analysis (Row #{idx_a} vs Row #{idx_b}) ---")
+                    print(f"  • Has Matches         : {match_res['has_matches']}")
+                    print(f"  • Match Category      : {match_res['match_category']}")
+                    print(f"  • Matching Attributes : {', '.join(match_res['matching_attributes']) if match_res['matching_attributes'] else 'None'}")
+                    print(f"  • Match Details       : {match_res['details']}")
+                    if match_res['matching_values']:
+                        print("  • Matched Values      :")
+                        for k, v in match_res['matching_values'].items():
+                            print(f"      - {k}: {v}")
+            else:
+                matches = identify_matching_property_info(records)
+                print(f"  • Total Matches Found: {len(matches)}")
+                if not matches:
+                    print("  [✓] All records in dataset are unique; no duplicate property clusters detected.")
+                else:
+                    for m in matches[:10]:
+                        print(f"    - [{m['match_type'].upper()}] Record #{m['record_a_index']} matches #{m['record_b_index']} ({m['similarity_score']:.1f}% match): {m['reason']}")
+                    if len(matches) > 10:
+                        print(f"    ... and {len(matches) - 10} more matching pairs.")
 
         elif sub_choice == "2":
             print("\n[*] Flagging duplicate records in dataset...")

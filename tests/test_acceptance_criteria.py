@@ -630,6 +630,12 @@ class TestAcceptanceCriteria(unittest.TestCase):
         distinct_info = identify_matching_property_info(rec1, rec3)
         self.assertEqual(distinct_info["match_category"], "NONE")
 
+        # Dataset-wide scan mode
+        matches_found = identify_matching_property_info([rec1, rec2, rec3])
+        self.assertEqual(len(matches_found), 1)
+        self.assertEqual(matches_found[0]["record_a_index"], 0)
+        self.assertEqual(matches_found[0]["record_b_index"], 1)
+
         # Invalid dictionary input
         self.assertFalse(identify_matching_property_info(None, None)["has_matches"])
 

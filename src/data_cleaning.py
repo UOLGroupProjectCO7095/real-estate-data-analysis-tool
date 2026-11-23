@@ -1691,26 +1691,69 @@ def format_comparison_table(
 
 
 def identify_matching_property_info(
-    rec1: Dict[str, Any],
-    rec2: Dict[str, Any],
+    rec1: Any,
+    rec2: Optional[Dict[str, Any]] = None,
     price_tolerance_pct: float = 0.05
-) -> Dict[str, Any]:
+) -> Any:
     """
     Acceptance Criterion 2: The system should identify matching property information.
 
-    Identifies which specific pieces of property information match between two records:
-    - Exact matching attributes (ID, type, location, rooms, price, URL)
-    - Normalized/canonical matches (canonicalized URLs, normalized addresses)
-    - Value-level match map and detection categorization.
+    Operates in two modes:
+    1. Pair-wise matching (when rec1 and rec2 are both dicts):
+       Identifies which specific pieces of property information match between two records:
+       - Exact matching attributes (ID, type, location, rooms, price, URL)
+       - Normalized/canonical matches (canonicalized URLs, normalized addresses)
+       - Value-level match map and detection categorization.
+       Returns:
+         Dict with keys 'has_matches', 'matching_attributes', 'matching_values', 'match_category', 'details'.
 
-    Returns:
-        Dict[str, Any]:
-        - 'has_matches': bool
-        - 'matching_attributes': list of matching attribute names
-        - 'matching_values': dict of {field_name: matched_value}
-        - 'match_category': 'EXACT_ID' | 'EXACT_ALL' | 'CANONICAL_URL' | 'SEMANTIC_ATTRIBUTES' | 'PARTIAL' | 'NONE'
-        - 'details': human-readable breakdown of what matched
+    2. Dataset-wide scan (when rec1 is a list of dicts and rec2 is None):
+       Scans all pairs across the dataset, identifies matching property information and duplicate
+       clusters between records.
+       Returns:
+         List[Dict[str, Any]] of matching pairs:
+         [
+           {
+             'record_a_index': int,
+             'record_b_index': int,
+             'property_id_a': str,
+             'property_id_b': str,
+             'match_type': str,
+             'similarity_score': float,
+             'reason': str,
+             'matching_attributes': List[str],
+             'matching_values': Dict[str, Any]
+           },
+           ...
+         ]
     """
+    # Mode 2: Dataset-wide scan
+    if isinstance(rec1, list) and rec2 is None:
+        dataset_matches: List[Dict[str, Any]] = []
+        n = len(rec1)
+        for i in range(n):
+            for j in range(i + 1, n):
+                r_a = rec1[i]
+                r_b = rec1[j]
+                if not isinstance(r_a, dict) or not isinstance(r_b, dict):
+                    continue
+                pair_info = identify_matching_property_info(r_a, r_b, price_tolerance_pct=price_tolerance_pct)
+                if pair_info.get("has_matches") and pair_info.get("match_category") not in ["NONE", "PARTIAL"]:
+                    comp_res = compare_property_records(r_a, r_b)
+                    dataset_matches.append({
+                        "record_a_index": i,
+                        "record_b_index": j,
+                        "property_id_a": r_a.get("property_id", f"Record_{i}"),
+                        "property_id_b": r_b.get("property_id", f"Record_{j}"),
+                        "match_type": pair_info.get("match_category", "PARTIAL").lower(),
+                        "similarity_score": round(comp_res.get("similarity_score", 0.0) * 100.0, 1),
+                        "reason": pair_info.get("details", ""),
+                        "matching_attributes": pair_info.get("matching_attributes", []),
+                        "matching_values": pair_info.get("matching_values", {})
+                    })
+        return dataset_matches
+
+    # Mode 1: Pair-wise matching
     if not isinstance(rec1, dict) or not isinstance(rec2, dict):
         return {
             "has_matches": False,
