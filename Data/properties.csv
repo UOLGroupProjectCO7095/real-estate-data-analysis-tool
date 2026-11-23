@@ -1,32 +1,31 @@
 property_id,property_type,location,price,bedrooms,bathrooms,listing_url
-PROP1001,apartment,London Central,450000,2,1.5,https://properties.example.com/1001
-PROP1002,house,Manchester South,320000,3,2,https://properties.example.com/1002
-PROP1003,condo,Birmingham City,210000,1,1,https://properties.example.com/1003
-PROP1004,villa,Surrey Green,850000,5,4,https://properties.example.com/1004
-PROP1005,studio,Bristol Centre,160000,0,1,https://properties.example.com/1005
-PROP1006,townhouse,Leeds West,220000,2,1,https://properties.example.com/1006
-PROP1007,house,Edinburgh Old Town,480000,4,3,https://properties.example.com/1007
-PROP1008,house,Glasgow East,195000,3,2,https://properties.example.com/1008
-PROP1009,apartment,Cardiff Bay,300000,2,1,https://properties.example.com/1009
-PROP1010,duplex,Liverpool Dock,275000,2,2,https://properties.example.com/1010
-PROP1011,land,York Countryside,150000,0,0,https://properties.example.com/1011
-PROP1012,apartment,Newcastle Centre,180000,1,1,https://properties.example.com/1012
-MOCK_COLLECT_40104,studio,Leeds Central,314000,0,1,https://realestate-mock.co.uk/places/studio-leeds-MOCK_COLLECT_40104
-MOCK_COLLECT_80082,apartment,Leeds Central,753000,3,2,https://realestate-mock.co.uk/places/apartment-leeds-MOCK_COLLECT_80082
-MOCK_COLLECT_88309,condo,Edinburgh Central,199000,5,4,https://realestate-mock.co.uk/places/condo-edinburgh-MOCK_COLLECT_88309
-MOCK_COLLECT_69872,apartment,Edinburgh Central,289000,2,1,https://realestate-mock.co.uk/places/apartment-edinburgh-MOCK_COLLECT_69872
-MOCK_PROP_M4_94320,house,Manchester High Street,430000.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_94320
-MOCK_PROP_M4_32501,apartment,Manchester High Street,299000.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_32501
-MOCK_PROP_M4_84938,villa,Oxford High Street,651000.0,1.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_84938
-MOCK_PROP_M4_95773,ensuite,Oxford High Street,217.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_95773
-PROP_2005064014733,house,Leicester,115,1,1,https://amberstudent.com/places/pennine-house-leicester-2005064014733
-PROP_2106166153995,ensuite,"Leicester (44 York St / Dover St, LE1)",114,1,1,https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995?range_available_price=79%2C150&move_in_month=jan-2027&meta_types=ensuite
-PROP_STU_LEICESTER_01,ensuite,Leicester City Centre (LE1),115.0,1,1.0,https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995
-MOCK_COLLECT_79636,ensuite,Leicester Central,248,4,3,https://realestate-mock.co.uk/places/ensuite-leicester-MOCK_COLLECT_79636
-MOCK_COLLECT_28906,studio,Bristol Central,695000,0,1,https://realestate-mock.co.uk/places/studio-bristol-MOCK_COLLECT_28906
-MOCK_COLLECT_53812,studio,Leeds Central,627000,0,1,https://realestate-mock.co.uk/places/studio-leeds-MOCK_COLLECT_53812
-MOCK_COLLECT_24917,studio,Manchester Central,503000,0,1,https://realestate-mock.co.uk/places/studio-manchester-MOCK_COLLECT_24917
-MOCK_PROP_M4_76360,ensuite,Oxford High Street,133.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_76360
-MOCK_PROP_M4_43629,duplex,Leicester High Street,169000.0,2.0,1.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_43629
-MOCK_PROP_M4_34384,duplex,Cardiff High Street,750000.0,4.0,3.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_34384
-MOCK_PROP_M4_28280,apartment,Leicester High Street,144000.0,3.0,2.0,https://member4-properties.co.uk/listings/MOCK_PROP_M4_28280
+PROP1001,apartment,London Central,450000,2,1.5,https://www.rightmove.co.uk/property-to-rent/London.html
+PROP1002,house,Manchester South,320000,3,2,https://www.rightmove.co.uk/property-to-rent/Manchester.html
+PROP1003,condo,Birmingham City,210000,1,1,https://www.rightmove.co.uk/property-to-rent/Birmingham.html
+PROP1004,villa,Surrey Green,850000,5,4,https://www.rightmove.co.uk/property-to-rent/Surrey.html
+PROP1005,studio,Bristol Centre,160000,0,1,https://www.rightmove.co.uk/property-to-rent/Bristol.html
+PROP1006,townhouse,Leeds West,220000,2,1,https://www.rightmove.co.uk/property-to-rent/Leeds.html
+PROP1007,house,Edinburgh Old Town,480000,4,3,https://www.rightmove.co.uk/property-to-rent/Edinburgh.html
+PROP1008,house,Glasgow East,195000,3,2,https://www.rightmove.co.uk/property-to-rent/Glasgow.html
+PROP1009,apartment,Cardiff Bay,300000,2,1,https://www.rightmove.co.uk/property-to-rent/Cardiff.html
+PROP1010,duplex,Liverpool Dock,275000,2,2,https://www.rightmove.co.uk/property-to-rent/Liverpool.html
+PROP1011,land,York Countryside,150000,0,0,https://www.rightmove.co.uk/property-to-rent/York.html
+PROP1012,apartment,Newcastle Centre,180000,1,1,https://www.rightmove.co.uk/property-to-rent/Newcastle-Upon-Tyne.html
+PROP_2005064014733,ensuite,Leicester LE1,115,1,1,https://amberstudent.com/places/pennine-house-leicester-2005064014733
+PROP_2106166153995,ensuite,Leicester LE1,114,1,1,https://amberstudent.com/places/dover-street-apartments-leicester-2106166153995
+PROP_1809051412099,studio,Leicester LE2,145,1,1,https://amberstudent.com/places/the-summit-leicester-1809051412099
+PROP_2103176973356,ensuite,Leicester LE2,125,1,1,https://amberstudent.com/places/queens-court-leicester-2103176973356
+PROP_1809051480931,ensuite,Leicester LE2,105,1,1,https://amberstudent.com/places/ben-russell-court-leicester-1809051480931
+PROP_1809053229645,studio,Leicester LE3,159,1,1,https://amberstudent.com/places/code-students-leicester-1809053229645
+PROP_1809059521741,ensuite,Leicester LE3,129,1,1,https://amberstudent.com/places/merlin-heights-leicester-1809059521741
+PROP_AMBER_MCR_01,ensuite,Manchester M13,160,1,1,https://amberstudent.com/places/search/manchester-1811053420456
+PROP_AMBER_LDN_01,studio,London WC1,240,1,1,https://amberstudent.com/places/search/london-1811051515281
+PROP_AMBER_BRM_01,ensuite,Birmingham B1,135,1,1,https://amberstudent.com/places/search/birmingham-1811052601728
+PROP_AMBER_LDS_01,studio,Leeds LS6,140,1,1,https://amberstudent.com/places/search/leeds-1811055811329
+PROP_AMBER_LEI_01,ensuite,Leicester City Centre (LE1),115.0,1,1.0,https://amberstudent.com/places/search/leicester-1811058253133
+PROP_ZOOPLA_LDN_01,apartment,London Central,520000,2,2,https://www.zoopla.co.uk/to-rent/property/london/
+PROP_ZOOPLA_MCR_01,apartment,Manchester Central,280000,2,1,https://www.zoopla.co.uk/to-rent/property/manchester/
+PROP_ZOOPLA_LEI_01,house,Leicester Clarendon Park,260000,3,2,https://www.zoopla.co.uk/to-rent/property/leicester/
+PROP_ZOOPLA_BRS_01,flat,Bristol City Centre,310000,2,1,https://www.zoopla.co.uk/to-rent/property/bristol/
+PROP_OPENRENT_LDN_01,apartment,London Central,350000,1,1,https://www.openrent.co.uk/properties-to-rent/london
+PROP_OPENRENT_LEI_01,house,Leicester West End,190000,3,1,https://www.openrent.co.uk/properties-to-rent/leicester

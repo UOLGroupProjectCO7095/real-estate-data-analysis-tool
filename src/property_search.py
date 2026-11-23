@@ -78,6 +78,15 @@ def generate_mock_member4_properties(count: int = 5) -> List[Property]:
         beds = random.randint(1, 4)
         baths = max(1, beds - 1)
 
+        city_urls = {
+            "London": "https://www.zoopla.co.uk/to-rent/property/london/",
+            "Manchester": "https://www.zoopla.co.uk/to-rent/property/manchester/",
+            "Leicester": "https://amberstudent.com/places/search/leicester-1811058253133",
+            "Cardiff": "https://www.rightmove.co.uk/property-to-rent/Cardiff.html",
+            "Oxford": "https://www.rightmove.co.uk/property-to-rent/Oxford.html"
+        }
+        url = city_urls.get(city, f"https://www.rightmove.co.uk/property-to-rent/{city}.html")
+
         mock_properties.append(Property(
             property_id=rand_id,
             property_type=ptype,
@@ -85,7 +94,7 @@ def generate_mock_member4_properties(count: int = 5) -> List[Property]:
             price=price,
             bedrooms=beds,
             bathrooms=baths,
-            listing_url=f"https://member4-properties.co.uk/listings/{rand_id}"
+            listing_url=url
         ))
 
     return mock_properties

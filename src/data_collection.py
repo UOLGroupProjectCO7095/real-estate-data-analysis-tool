@@ -29,6 +29,17 @@ def generate_mock_collected_properties(count: int = 5) -> List[Dict[str, Any]]:
         beds = random.randint(1, 5) if ptype != "studio" else 0
         baths = max(1, beds - 1) if beds > 0 else 1
 
+        city_urls = {
+            "London": "https://www.rightmove.co.uk/property-to-rent/London.html",
+            "Manchester": "https://www.rightmove.co.uk/property-to-rent/Manchester.html",
+            "Birmingham": "https://www.rightmove.co.uk/property-to-rent/Birmingham.html",
+            "Leicester": "https://amberstudent.com/places/search/leicester-1811058253133",
+            "Edinburgh": "https://www.rightmove.co.uk/property-to-rent/Edinburgh.html",
+            "Leeds": "https://amberstudent.com/places/search/leeds-1811055811329",
+            "Bristol": "https://www.rightmove.co.uk/property-to-rent/Bristol.html"
+        }
+        url = city_urls.get(city, f"https://www.rightmove.co.uk/property-to-rent/{city}.html")
+
         mock_records.append({
             "property_id": rand_id,
             "property_type": ptype,
@@ -36,7 +47,7 @@ def generate_mock_collected_properties(count: int = 5) -> List[Dict[str, Any]]:
             "price": str(price),
             "bedrooms": str(beds),
             "bathrooms": str(baths),
-            "listing_url": f"https://realestate-mock.co.uk/places/{ptype}-{city.lower()}-{rand_id}"
+            "listing_url": url
         })
 
     return mock_records
