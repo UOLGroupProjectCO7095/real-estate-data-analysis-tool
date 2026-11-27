@@ -1,0 +1,163 @@
+ID,Task,Predecessors,Optimistic,Most likely,Pessimistic
+A,Requirements Analysis,,2,3,4
+B,Project Planning and User Story Allocation,A,2,3,4
+C,GitHub Repository and PyCharm Setup,B,1,2,3
+D,Data Collection - Property Data Source Management,C,2,3,4
+E,Data Collection - CSV Data Importing,D,2,3,4
+F,Data Collection - Automated Property Data Collection,D,3,4,6
+G,Data Collection - Property Price Extraction,F,2,3,4
+H,Data Collection - Property Location Extraction,F,2,3,4
+I,Data Collection - Property Specification Extraction,F,2,3,4
+J,Data Collection - Collection Scheduling,F,2,3,5
+K,Data Collection - Collection Error Handling,G H I,2,3,4
+L,Data Collection - Collection History Tracking,J K,2,3,4
+M,Data Processing - Property Data Validation,E G H I,2,3,4
+N,Data Processing - Duplicate Property Detection,M,2,3,4
+O,Data Processing - Missing Data Identification,M,1,2,3
+P,Data Processing - Property Data Cleaning,N O,2,3,5
+Q,Data Processing - Data Format Standardisation,P,2,3,4
+R,Data Processing - Property Category Classification,Q,2,3,4
+S,Data Processing - Invalid Property Record Handling,P,2,3,4
+T,Data Processing - Property Data Updating,R S,2,3,4
+U,Data Processing - Data Quality Measurement,T,2,3,4
+V,Properties - Property Registration,C,2,3,4
+W,Properties - Property Information Retrieval,V,2,3,4
+X,Properties - Property Record Updating,W,1,2,3
+Y,Properties - Property Record Deletion,W,1,2,3
+Z,Properties - Property Search,W,2,3,4
+AA,Properties - Location Based Filtering,Z,1,2,3
+AB,Properties - Price Based Filtering,Z,1,2,3
+AC,Properties - Property Type Filtering,Z,1,2,3
+AD,Properties - Property Sorting and Comparison,AA AB AC,2,3,4
+AE,Analytics - Average Property Price Calculation,U,2,3,4
+AF,Analytics - Price Per Square Metre Calculation,U,2,3,4
+AG,Analytics - Property Price Comparison,AE AF,2,3,4
+AH,Analytics - Regional Price Analysis,AE,2,3,4
+AI,Analytics - Property Price Trend Analysis,AG,3,4,6
+AJ,Analytics - Rental Yield Calculation,AF,2,3,4
+AK,Analytics - Investment Return Calculation,AJ,2,3,4
+AL,Analytics - Property Affordability Analysis,AE AK,2,3,4
+AM,Analytics - Market Performance Analysis,AH AI AL,2,3,5
+AN,System Integration,L U AD AM,3,4,6
+AO,Black Box Testing,AN,2,3,4
+AP,White Box Testing,AN,2,3,4
+AQ,Symbolic Execution Testing,AP,2,3,5
+AR,Concolic Testing,AQ,2,3,5
+AS,Test Coverage Measurement,AO AP AQ AR,2,3,4
+AT,Bug Fixing and Quality Improvement,AS,3,4,6
+AU,COCOMO I and COCOMO II Estimation,C,2,3,4
+AV,Earned Value Management and Velocity,B,2,3,4
+AW,Sprint Burndown Chart Preparation,AV,2,3,4
+AX,CMMI Level 2 Documentation Audit,AY,2,3,4
+AY,README and Technical Documentation,AN,3,4,6
+AZ,Final Project Report,AU AV AW AX AT,3,4,6
+BA,Video Demonstration Preparation,AT AY,2,3,4
+BB,Final Review and Submission,AZ BA,1,2,3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
