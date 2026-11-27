@@ -24,7 +24,6 @@ measurement of the source code.
 For this project, we have selected the Early Design model because it is suitable for making 
 an initial estimate when the project is understood but detailed implementation information is not required.
 COCOMO II considers scale factors and effort multipliers when calculating the development effort.
-
 4. COCOMO II Formula
 The effort estimation formula is:
 5. COCOMO 1_ Effort Edtimation
